@@ -1,0 +1,5 @@
+{
+  "editor.codeLens": true,
+  "testing.gutterEnabled": true,
+  "playwright.configPath": "playwright.config.js"
+}

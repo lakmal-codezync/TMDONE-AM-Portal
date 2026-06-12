@@ -1,0 +1,18 @@
+﻿
+> playwright-tmdone-admin@1.0.0 test:full
+> npx playwright test tests/00-full-system.spec.js
+
+
+Running 51 tests using 1 worker
+
+Γ£à AUTH-01: Login page OK!
+  Γ£ô   1 [chromium] ΓÇ║ tests\00-full-system.spec.js:96:1 ΓÇ║ SYS-AUTH-01: Login page loads with all required fields (56.3s)
+Γ£à AUTH-02: Invalid credentials rejected!
+  Γ£ô   2 [chromium] ΓÇ║ tests\00-full-system.spec.js:109:1 ΓÇ║ SYS-AUTH-02: Login fails with invalid credentials (1.0m)
+  Γ£ÿ   3 [chromium] ΓÇ║ tests\00-full-system.spec.js:124:1 ΓÇ║ SYS-AUTH-03: Valid login redirects to dashboard (1.1m)
+  Γ£ÿ   4 [chromium] ΓÇ║ tests\00-full-system.spec.js:124:1 ΓÇ║ SYS-AUTH-03: Valid login redirects to dashboard (retry #1) (1.1m)
+Γ£à AUTH-04: Empty form validation OK!
+  Γ£ô   5 [chromium] ΓÇ║ tests\00-full-system.spec.js:131:1 ΓÇ║ SYS-AUTH-04: Empty form shows validation errors (59.9s)
+  Γ£ÿ   6 [chromium] ΓÇ║ tests\00-full-system.spec.js:145:1 ΓÇ║ SYS-DASH-01: Dashboard page loads with content (1.0m)
+  Γ£ÿ   7 [chromium] ΓÇ║ tests\00-full-system.spec.js:145:1 ΓÇ║ SYS-DASH-01: Dashboard page loads with content (retry #1) (1.1m)
+  Γ£ÿ   8 [chromium] ΓÇ║ tests\00-full-system.spec.js:157:1 ΓÇ║ SYS-DASH-02: Dashboard shows stats cards and sidebar nav (52.8s)
