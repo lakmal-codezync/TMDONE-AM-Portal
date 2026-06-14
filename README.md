@@ -2,6 +2,11 @@
 
 Playwright-based end-to-end automation suite for the TMDone Admin Console. This project covers core admin workflows such as authentication, dashboard validation, reports, stores, offers, campaigns, reels, driver KPI slabs, and TM Done Club analytics.
 
+
+## ALL Testcases
+https://docs.google.com/document/d/1Ygw7hUGV8gru99CCkvyM2YsT4JEum7l8b5V8GpcdkAQ/edit?usp=sharing
+
+
 ## System Overview
 
 This automation pack is designed to validate the main operational areas of the admin console:
