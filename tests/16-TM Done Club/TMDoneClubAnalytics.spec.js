@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 import { TM_DONE_CLUB_ROUTES, TMDoneClubPage } from './tm-done-club-helper.js';
 
 class TMDoneClubAnalyticsPage extends TMDoneClubPage {
+  /**
+   * @param {import("playwright-core").Page} page
+   */
   constructor(page) {
     super(page, {
       route: TM_DONE_CLUB_ROUTES.analytics,
@@ -13,6 +16,7 @@ class TMDoneClubAnalyticsPage extends TMDoneClubPage {
 
   async verifyFiltersAndSearch() {
     await this.applyCurrentYearToPresentDateRange();
+    // @ts-ignore
     const selected = await this.selectDropdown(this.body, /store|plan|zone|subscription/i, 0);
     if (!selected) {
       test.info().annotations.push({

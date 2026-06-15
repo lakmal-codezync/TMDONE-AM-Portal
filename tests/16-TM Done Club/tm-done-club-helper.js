@@ -65,6 +65,7 @@ export class TMDoneClubPage {
     };
 
     return this.page
+      // @ts-ignore
       .getByRole('link', { name: new RegExp(`^${labels[this.config.section]}$`, 'i') })
       .filter({ visible: true })
       .first();
@@ -169,6 +170,11 @@ export class TMDoneClubPage {
     expect(visibleControls).toBeGreaterThan(0);
   }
 
+  /**
+   * @param {import("playwright-core").Locator} context
+   * @param {string[]} selectors
+   * @param {string} value
+   */
   async fillFirstVisible(context, selectors, value) {
     for (const selector of selectors) {
       const field = context.locator(selector).filter({ visible: true }).first();
@@ -187,6 +193,9 @@ export class TMDoneClubPage {
     return false;
   }
 
+  /**
+   * @param {import("playwright-core").Locator} context
+   */
   async selectDropdown(context, labelPattern = null, option = 0) {
     const dropdowns = context.locator('mat-select, [role="combobox"]').filter({ visible: true });
     const count = await dropdowns.count().catch(() => 0);
@@ -203,6 +212,7 @@ export class TMDoneClubPage {
           await dropdown.locator('xpath=ancestor::mat-form-field[1]').innerText().catch(() => ''),
           await dropdown.innerText().catch(() => ''),
         ].filter(Boolean).join(' ');
+        // @ts-ignore
         if (!labelPattern.test(dropdownText)) continue;
       }
 
@@ -346,6 +356,10 @@ export class TMDoneClubPage {
     return true;
   }
 
+  /**
+   * @param {import("playwright-core").Locator} context
+   * @param {RegExp} labelPattern
+   */
   async enabledButton(context, labelPattern) {
     const buttons = context.locator('button, [role="button"]').filter({ visible: true }).filter({ hasText: labelPattern });
     const count = await buttons.count().catch(() => 0);
@@ -382,6 +396,9 @@ export class TMDoneClubPage {
     }
   }
 
+  /**
+   * @param {string} value
+   */
   normalize(value) {
     return value.toLowerCase().replace(/[^a-z0-9]/g, '');
   }

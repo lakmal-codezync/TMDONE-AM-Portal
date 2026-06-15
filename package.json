@@ -64,7 +64,7 @@
     "test:fdf-08": "npx playwright test tests/12-Campaigns/02.5-FixedDeliveryFeeManagement.spec.js -g \"Test 08\"",
     "test:fdf-09": "npx playwright test tests/12-Campaigns/02.5-FixedDeliveryFeeManagement.spec.js -g \"Test 09\"",
     "test:fdf-10": "npx playwright test tests/12-Campaigns/02.5-FixedDeliveryFeeManagement.spec.js -g \"Test 10\"",
-    "test:boost": "npx playwright test \".*13-Smart Boost Campaign.*smartBoostCampaigns.spec.js\"",
+    "test:boost": "npx playwright test \".*13-Smart Boost Campaign.*smart-boost-campaign.spec.js\"",
     "test:kpi": "npx playwright test \".*14-Driver KPI Slabs.*\"",
     "test:reels": "npx playwright test tests/15-Reels",
     "test:club": "npx playwright test TMDoneClubAnalytics.spec.js SubscriptionPlans.spec.js SubscriptionsReports.spec.js CancellationReasons.spec.js",
