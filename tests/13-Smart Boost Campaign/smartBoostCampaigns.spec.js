@@ -2,13 +2,13 @@
 // ============================================================
 // TMDone Admin Console - Smart Boost Campaigns
 // Page object style full page checks
-// URL: #/home/smart-boost-campaign
+// URL: #/home/smart-boost-campaign/list
 // ============================================================
 
 import { test, expect } from '@playwright/test';
 import { loginToApp, goToPage } from '../helpers/loginHelper.js';
 
-const SMART_BOOST_URL = '#/home/smart-boost-campaign';
+const SMART_BOOST_URL = '#/home/smart-boost-campaign/list';
 const TEST_CAMPAIGN_NAME = `Auto Smart Boost ${Date.now()}`;
 
 class SmartBoostCampaignsPage {
@@ -99,20 +99,16 @@ class SmartBoostCampaignsPage {
 
   async waitForReady() {
     await expect(this.page).toHaveURL(/smart-boost-campaign/i, { timeout: 20000 });
+    await expect(this.pageTitle).toBeVisible({ timeout: 45000 });
 
-    for (let i = 0; i < 20; i++) {
-      const titleVisible = await this.pageTitle.isVisible().catch(() => false);
-      const tableVisible = await this.table.isVisible().catch(() => false);
+    for (let attempt = 0; attempt < 30; attempt += 1) {
       const createVisible = await this.createButton.isVisible().catch(() => false);
-      const bodyText = await this.page.locator('body').innerText().catch(() => '');
-
-      if (titleVisible || tableVisible || createVisible || /Smart\s*Boost|Campaign/i.test(bodyText)) {
-        return;
-      }
+      const tableVisible = await this.table.isVisible().catch(() => false);
+      if (createVisible || tableVisible) return;
       await this.page.waitForTimeout(500);
     }
 
-    await expect(this.page.locator('body')).toContainText(/Smart\s*Boost|Campaign/i, { timeout: 10000 });
+    await expect(this.createButton).toBeVisible({ timeout: 5000 });
   }
 
   async verifyPageLoaded() {
@@ -165,11 +161,11 @@ class SmartBoostCampaignsPage {
       if (!(await dropdown.isEnabled().catch(() => true))) continue;
 
       await dropdown.scrollIntoViewIfNeeded().catch(() => {});
-      await dropdown.click({ force: true }).catch(() => {});
-      await this.page.waitForTimeout(700);
+      await dropdown.click({ force: true, timeout: 5000 }).catch(() => {});
+      await this.page.waitForTimeout(300);
 
       const options = this.page.locator('mat-option, .mat-option, [role="option"]').filter({ visible: true });
-      const optionCount = await options.count().catch(() => 0);
+      const optionCount = Math.min(await options.count().catch(() => 0), 20);
       const selectable = [];
 
       for (let optionNumber = 0; optionNumber < optionCount; optionNumber++) {
@@ -295,13 +291,10 @@ class SmartBoostCampaignsPage {
 
   async verifyFiltersAndPagination() {
     const filterArea = this.page.locator('body');
-    const visibleSelects = this.page.locator('mat-select, [role="combobox"]').filter({ visible: true });
-    const selectCount = Math.min(await visibleSelects.count().catch(() => 0), 3);
-
-    for (let index = 0; index < selectCount; index++) {
-      await this.selectDropdown(filterArea, null, 0);
-      await this.page.waitForTimeout(1000);
-    }
+    await this.selectDropdown(filterArea, 'Status', 0);
+    await this.page.waitForTimeout(500);
+    await this.selectDropdown(filterArea, 'Store', 0);
+    await this.page.waitForTimeout(500);
 
     const searchInput = this.page
       .locator('input[placeholder*="Search" i], input[aria-label*="search" i], input[matinput], input.mat-input-element')
