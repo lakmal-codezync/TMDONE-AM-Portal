@@ -6,39 +6,39 @@ import { defineConfig, devices } from '@playwright/test';
  * Base URL: https://consoledemo.uat.v3.dr.tmd1.org
  */
 export default defineConfig({
-  // Tests folder eka specify karannne mehethanin
+  // Test folder.
   testDir: './tests',
 
-  // Test files parallel run karanna - speed eka wagakai
+  // Run test files sequentially for stability.
   fullyParallel: false,
 
-  // CI environment eke test.only thiyannam build fail wenawa
+  // Fail the build in CI if test.only is committed.
   forbidOnly: !!process.env.CI,
 
-  // CI eke retries 2 yi, local eke 0 yi
+  // Use more retries in CI than in local runs.
   retries: process.env.CI ? 2 : 1,
 
-  // CI eke workers 1 yi, local eke automatic yi
+  // Use one worker for stable execution.
   workers: 1,
 
-  // HTML report generate wenawa test eka run una gaman
+  // Generate the HTML report after the test run.
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],
   ],
 
-  // Okkoma tests walin common settings
+  // Common settings for all tests.
   use: {
-    // TMDone Admin demo URL eka
+    // TMDone Admin demo URL.
     baseURL: 'https://consoledemo.uat.v3.dr.tmd1.org',
 
-    // Test fail una wita screenshot gannawa
+    // Capture screenshots on failure.
     screenshot: 'only-on-failure',
 
-    // Test fail una wita video gannawa
+    // Capture videos on failure.
     video: 'retain-on-failure',
 
-    // Trace collect karannawa first retry eke
+    // Collect a trace on the first retry.
     trace: 'on-first-retry',
 
     // Action timeout - 30 seconds
@@ -47,14 +47,14 @@ export default defineConfig({
     // Navigation timeout - 60 seconds
     navigationTimeout: 60000,
 
-    // Browser eka balanna one nam: HEADED=true npx playwright test
+    // To view the browser: HEADED=true npx playwright test
     headless: process.env.HEADED !== 'true',
 
-    // Viewport size set karannawa
+    // Viewport size.
     viewport: { width: 1280, height: 720 },
   },
 
-  // Chromium browser ekkai test karanne (Chrome)
+  // Run tests in Chromium only.
   projects: [
     {
       name: 'chromium',

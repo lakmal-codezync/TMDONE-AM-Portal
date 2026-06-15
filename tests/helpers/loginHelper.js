@@ -1,13 +1,13 @@
 // @ts-check
 // ============================================================
 // TMDone Admin Console - Shared Helper Functions
-// Okkoma test files walin reuse karanna common functions
+// Common functions reused across all test files.
 // ============================================================
 
 import { expect } from '@playwright/test';
 
 // ===================== CONSTANTS ============================
-// Centralized credentials - ekka change kale okkoma update wela
+// Centralized credentials. Updating these values applies to all tests.
 export const CREDENTIALS = {
   email: 'nimsara@codezync.com',
   password: '123123',
@@ -16,8 +16,8 @@ export const CREDENTIALS = {
 };
 
 // ============================================================
-// loginToApp() - Signin karanna reusable function eka
-// page = Playwright page object eka
+// loginToApp() - Reusable sign-in helper.
+// page = Playwright page object.
 // ============================================================
 /**
  * @param {import('@playwright/test').Page} page
@@ -72,13 +72,13 @@ export async function loginToApp(page) {
     await dismissSweetAlert(page);
     await page.waitForTimeout(1500);
 
-    // Already logged in da check - dashboard URL eke innawada
+    // Check whether the user is already logged in and on the dashboard.
     if (isLoggedIn()) {
       console.log('Already logged in - skip!');
       return;
     }
 
-    // Email field eka fill karannawa
+    // Fill the email field.
     const emailInput = page
       .locator('input[type="email"], input[formcontrolname*="email" i], input[placeholder*="email" i], input')
       .first();
@@ -86,12 +86,12 @@ export async function loginToApp(page) {
     await emailInput.fill('');
     await emailInput.fill(CREDENTIALS.email);
 
-    // Password field eka fill karannawa
+    // Fill the password field.
     const passwordInput = page.locator('input[type="password"]').first();
     await passwordInput.fill('');
     await passwordInput.fill(CREDENTIALS.password);
 
-    // Login button click karannawa - wait for it to be enabled first
+    // Click the login button after it becomes enabled.
     const loginBtn = page.locator('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")').first();
     await loginBtn.waitFor({ state: 'visible', timeout: 15000 });
     await waitForNoSpinner(page);
@@ -116,8 +116,8 @@ export async function loginToApp(page) {
 }
 
 // ============================================================
-// goToPage() - Specific page ekta navigate karanna helper
-// hashPath = '#/home/campaigns' wage URL path eka
+// goToPage() - Helper for navigating to a specific page.
+// hashPath = URL path such as '#/home/campaigns'.
 // ============================================================
 /**
  * @param {import('@playwright/test').Page} page
@@ -132,8 +132,8 @@ export async function goToPage(page, hashPath) {
 }
 
 // ============================================================
-// clickCreateButton() - Create / Add button eka click karanna
-// Generic selector uses karannawa okkoma pages walin
+// clickCreateButton() - Click the Create or Add button.
+// Uses a generic selector shared by multiple pages.
 // ============================================================
 /**
  * @param {import('@playwright/test').Page} page
@@ -149,14 +149,14 @@ export async function clickCreateButton(page) {
 }
 
 // ============================================================
-// closeModalIfOpen() - Open modal eka close karanna
-// Escape key press karannawa or X button click karannawa
+// closeModalIfOpen() - Close an open modal.
+// Presses Escape or clicks the X button.
 // ============================================================
 /**
  * @param {import('@playwright/test').Page} page
  */
 export async function closeModalIfOpen(page) {
-  // Close button (X) thiyanawa da check
+  // Check whether the close button (X) is visible.
   const closeBtn = page.locator('button[mat-icon-button][aria-label="Close"], mat-dialog-container button mat-icon:has-text("close")').first();
   const closeVisible = await closeBtn.isVisible().catch(() => false);
 
@@ -165,7 +165,7 @@ export async function closeModalIfOpen(page) {
     await page.waitForTimeout(1000);
     console.log('Modal close button clicked!');
   } else {
-    // Escape key walin close karannawa
+    // Close the modal with the Escape key.
     await page.keyboard.press('Escape');
     await page.waitForTimeout(1000);
     console.log('Modal closed via Escape!');
@@ -173,8 +173,8 @@ export async function closeModalIfOpen(page) {
 }
 
 // ============================================================
-// clickMoreActionsMenu() - Row ekake dots menu eka click karanna
-// table ekak ekke first row eke actions menu eka open karannawa
+// clickMoreActionsMenu() - Click a row's dots menu.
+// Opens the actions menu for a row in a table.
 // ============================================================
 /**
  * @param {import('@playwright/test').Page} page
@@ -196,14 +196,14 @@ export async function clickMoreActionsMenu(page, rowIndex = 0) {
 }
 
 // ============================================================
-// confirmDeleteDialog() - Delete confirmation dialog cancel karanna
-// Real data delete karanna epa nisamai - cancel karannawa
+// confirmDeleteDialog() - Cancel the delete confirmation dialog.
+// This avoids deleting real data.
 // ============================================================
 /**
  * @param {import('@playwright/test').Page} page
  */
 export async function cancelDeleteDialog(page) {
-  // Cancel button click karannawa - real data delete epa karanne
+  // Click the cancel button to avoid deleting real data.
   const cancelBtn = page.locator('button:has-text("Cancel"), button:has-text("CANCEL"), button:has-text("No")').first();
   const cancelVisible = await cancelBtn.isVisible().catch(() => false);
 

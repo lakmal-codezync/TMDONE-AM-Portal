@@ -1,72 +1,72 @@
 # TMDone Admin Console - Automation Testing Coverage (Detailed Explanation)
 
-Me document eken harima wistharathmakawa explain karanne TMDone Admin console eke Playwright automation scripts walin test karana main modules saha ewaye features monawada kiyala. 
+This document explains, in detail, which main modules and features are covered by the Playwright automation scripts for the TMDone Admin Console.
 
-Meka kiyawaddi oyata therei script eka athule step-by-step monawada wenne kiyala.
+As you read through it, you can understand what happens step by step inside each script.
 
 ---
 
 ## 1. Authentication (`01-auth`)
-* **Valid Login:** Script eka mulinma browser eka open karala login page ekata yanawa. Eta passe hari username (email) eka saha password eka type karala 'Login' button eka click karanawa. Login wunata passe URL eka maru wela dashboard eka load wenawada kiyala check karanawa.
-* **Invalid Login:** Waradi email ekak hari password ekak hari deela login click kalama, system eken "Invalid credentials" kiyala ratu patin error message eka display wenawada kiyala script eken verify karanawa.
+* **Valid Login:** The script first opens the browser and navigates to the login page. It then enters a valid username (email) and password, clicks the `Login` button, and checks whether the URL changes and the dashboard loads successfully.
+* **Invalid Login:** When an incorrect email or password is entered and the login button is clicked, the script verifies that the system displays the `Invalid credentials` error message in red.
 
 ## 2. Dashboard (`02-dashboard`)
-* **Page Load & Widgets:** Dashboard ekata giyama eke thiyena pradhana widgets (Active Orders, Revenue, Users counts) hariyata load wela data pennanawada kiyala check karanawa. Empty cards nemei, numbers thiyanawada kiyala balanawa.
-* **Sidebar Navigation:** Sidebar eke thiyena links (Stores, Users, Campaigns) click karala e adala pages walata yanawada kiyala menu eka check karanawa.
+* **Page Load & Widgets:** After opening the dashboard, the script checks whether the main widgets, such as Active Orders, Revenue, and user counts, load correctly and display data. It verifies that the cards are not empty and contain numbers.
+* **Sidebar Navigation:** The script clicks sidebar links such as Stores, Users, and Campaigns, then checks whether each link navigates to the correct page.
 
 ## 3. Vendor Performance (`03-vendor-performance`)
-* **Data Table:** Vendor lage orders saha ratings pennana table eka load wenawada kiyala balanawa. Table eke headers saha adu gane eka row ekak hari thiyanawada kiyala check karanawa.
-* **Filters & Pagination:** Stores hari dates hari filter kalama table eka update wenawada saha pages maru karanakota next page ekata data enawada kiyala check karanawa.
+* **Data Table:** The script checks whether the table that displays vendor orders and ratings loads correctly. It verifies that the table headers are visible and that at least one row is available.
+* **Filters & Pagination:** When stores or dates are filtered, the script checks whether the table updates correctly. It also verifies that pagination loads data when moving to the next page.
 
 ## 4. Reports (`04-reports`)
-* **Tabs & Navigation:** Reports page eke thiyena tabs (e.g., Financial, Operational) athara maru wenakota hariyata tab eka active wenawada kiyala balanawa.
-* **Filters:** Zone eka saha Store eka dropdown walin select karanakota list eka filter wenawada kiyala check karanawa. Date picker eken 'Today' hari adala daws hari select karanna puluwanda balanawa.
-* **Export:** Download / Export button eka disable wela nathuwa click karanna puluwan thathwaye thiyanawada kiyala check karanawa.
+* **Tabs & Navigation:** The script checks whether report tabs, such as Financial and Operational, switch correctly and whether the selected tab becomes active.
+* **Filters:** The script verifies that selecting a zone or store from the dropdown filters the list correctly. It also checks whether the date picker can select `Today` or other relevant dates.
+* **Export:** The script checks whether the Download or Export button is enabled and can be clicked.
 
 ## 5. Analysis (`05-analysis`)
-* **Charts Validation:** Analysis page eke thiyena Highcharts/Canvas graphs html DOM eke render wela thiyanawada kiyala check karanawa.
-* **Store Comparison:** Compare section eke dropdowns deken stores dekak select karala ekata compare karanna puluwanda kiyala test karanawa.
+* **Charts Validation:** The script checks whether the Highcharts or Canvas graphs on the Analysis page are rendered in the HTML DOM.
+* **Store Comparison:** The script selects two stores from the comparison dropdowns and checks whether the comparison can be performed.
 
 ## 6. Stores & Store Ratings (`06-stores`)
-* **Store Search:** Search box eke "Test" kiyala type karala search kalama, adala store eka witharak table eke pennanawada kiyala check karanawa. Eka ayeth clear kalama parana list ekama enawada balanawa.
-* **Store Status Edit:** Store eke nama click karala details dialog eka open karagena, eke thiyena 'Active' toggle switch eka click karala store eka disable/enable karala save karanawa.
-* **Ratings:** Store ratings page ekata gihin eke ratings table eka saha export button eka wada karanawada kiyala balanawa.
+* **Store Search:** The script types `Test` in the search box and verifies that only the matching store appears in the table. After clearing the search, it checks whether the previous full list returns.
+* **Store Status Edit:** The script opens the store details dialog by clicking the store name, then uses the `Active` toggle switch to disable or enable the store and save the change.
+* **Ratings:** The script navigates to the Store Ratings page and checks whether the ratings table and export button work correctly.
 
 ## 7. Offers (`07-offers`) (Full CRUD Test)
-* **Create:** 'Create Offer' click karala popup eke nama (Offer name), category eka select karala Save karanawa.
-* **Read:** Hadapu offer eke nama search box eke gahala eka table eke enawada kiyala confirm karanawa.
-* **Update:** E hadapu offer eka row eke options walin 'Edit' click karala, nama wenas karala update karanawa.
-* **Delete:** Antimata e offer ekama 'Delete' click karala, SweetAlert confirmation box eke 'Yes' click karala delete karala danawa.
+* **Create:** The script clicks `Create Offer`, fills in the popup fields such as offer name and category, then saves the offer.
+* **Read:** The script searches for the newly created offer by name and confirms that it appears in the table.
+* **Update:** The script opens the options menu for the created offer, clicks `Edit`, changes the name, and updates the offer.
+* **Delete:** Finally, the script clicks `Delete` for the same offer, confirms the SweetAlert prompt by clicking `Yes`, and deletes the offer.
 
 ## 8. Order Management (`08-order-management`)
-* **Search Orders:** Order ID ekak dunnama eka table eke enawada kiyala check karanawa.
-* **Status Updates:** Order eka view karala, eke status eka (e.g., Pending to Accepted) wenas karanna puluwanda kiyala e adala popup eken check karanawa.
+* **Search Orders:** When an order ID is entered, the script checks whether the matching order appears in the table.
+* **Status Updates:** The script opens an order, then checks from the relevant popup whether the order status can be changed, for example from Pending to Accepted.
 
 ## 9. Portfolio & Accounts (`09-portfolio-accounts`)
-* **Filters:** Portfolio table eke data filter karana dropdowns wada da kiyala balanawa.
-* **Row Editing:** Table eke records edit karala (inline editing) save karana action eka wada da kiyala check karanawa.
+* **Filters:** The script checks whether the dropdown filters in the portfolio table work correctly.
+* **Row Editing:** The script edits records in the table using inline editing and verifies that the save action works.
 
 ## 10. Campaigns (`10-campaigns`)
-* **Advanced Create:** Aluth campaign ekak hadanakota Name, Budget, Dates okkoma fill karala save karanawa.
-* **State Toggles:** Thiyena campaign ekak "Pause" karala ayeth "Resume" karanawa.
-* **Pagination & Search:** Campaigns godak thiyenakota pages maru karana eka saha global filter eken text ekak deela search karana eka check karanawa.
+* **Advanced Create:** When creating a new campaign, the script fills in all required fields such as Name, Budget, and Dates, then saves the campaign.
+* **State Toggles:** The script pauses an existing campaign and then resumes it again.
+* **Pagination & Search:** When many campaigns are available, the script checks page navigation and verifies that text entered into the global filter searches correctly.
 
 ## 11. Smart Boost (`10b-smart-boost`)
-* **Boost Creation:** Smart Boost campaign ekak form eka fill karala create karanawa.
-* **Top-up:** Hadapu campaign eke options menu eken "Top-Up" click karala thawa budget ekak add karala save karanawa.
-* **Terminate:** Campaign eka options walin "Terminate" gihin reason ekak select karala cancel karanawa.
+* **Boost Creation:** The script fills in the Smart Boost campaign form and creates a campaign.
+* **Top-up:** From the options menu of the created campaign, the script clicks `Top-Up`, adds an additional budget, and saves it.
+* **Terminate:** From the campaign options menu, the script selects `Terminate`, chooses a reason, and cancels the campaign.
 
 ## 12. Reels (`11-reels`)
-* **Multi-step Form:** Aluth reel ekak hadanakota Step 1 eke Title, Description dila 'Next' gihin, Step 2 eke Video upload section eka (Drop zone eka) penenawada kiyala check karanawa.
-* **Interactions:** Hadapu reel eka table eken Edit karana eka saha View karala details balana eka check karanawa.
+* **Multi-step Form:** When creating a new reel, the script fills in the Title and Description in Step 1, clicks `Next`, and checks whether the video upload drop zone appears in Step 2.
+* **Interactions:** The script checks whether the created reel can be edited from the table and whether its details can be viewed.
 
 ## 13. Driver KPI Slabs (`11b-driver-kpi`)
-* **Slabs Setup:** Speed of delivery KPI eke Min minutes (e.g., 1), Max minutes (e.g., 10), Weight (e.g., 5) deela aluth slab ekak create karanawa. Eta passe eka edit karala Weight eka wenas karala save karanawa. Awasanayeta eka delete karanawa.
+* **Slabs Setup:** The script creates a new Speed of Delivery KPI slab by entering values such as Min minutes (for example, 1), Max minutes (for example, 10), and Weight (for example, 5). It then edits the slab, changes the Weight value, saves it, and finally deletes the slab.
 
 ## 14. TM Done Club (`12-tmdone-club`)
-* **Subscriptions:** Club members lata thiyena subscription plans create karana eka. Eke benefits, price add karala submit karana eka saha eka pahasuwen update/delete karana eka test karanawa.
+* **Subscriptions:** The script tests creating subscription plans for club members. It adds benefits and a price, submits the plan, and verifies that it can be updated or deleted easily.
 
 ---
 
-**Summery (Mechchara dewal test karanne aeyi?):**
-Me okkoma actions, ekakk passey ekak automated script eken play wenawa (harima manussayek browser eka use karanawa wage). System eke aluthen code dapu gaman meka run kalama, parana code walata mokakhari haniyak wela nam (regression bugs), me script eken point karala pennanawa koheda waradda kiyala. Eken admin console eke quality eka uparimayen thiyaganna puluwan.
+**Summary: Why do we test this much?**
+All these actions are played one after another by the automated script, similar to how a real user operates the browser. Whenever new code is added and this suite is run, the scripts can highlight where older functionality may have broken because of regression bugs. This helps maintain the quality of the admin console at a high level.

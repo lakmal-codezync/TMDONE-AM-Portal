@@ -19,15 +19,123 @@ This automation pack is designed to validate the main operational areas of the a
 
 The suite is organized as feature-based Playwright specs with reusable helpers for login, page navigation, filters, dialogs, and CRUD flows.
 
-## Screenshots
+## Application Screenshots
+
+The screenshots below show the main pages covered by the Playwright suite. They are stored under `docs/screenshots/` so the README can act as a quick visual map of the admin console.
+
+### Login
+
+<img src="docs/screenshots/login.png" alt="TMDone Admin Console login page" width="900">
+
+The login page verifies the first user-facing checkpoint of the console. The authentication tests cover required fields, invalid credentials, password visibility, keyboard navigation, and successful sign-in behavior.
 
 ### Dashboard
 
-![Dashboard](docs/screenshots/dashboard.png)
+<img src="docs/screenshots/dashboard.png" alt="TMDone Admin Console dashboard page" width="900">
+
+The dashboard is the main landing area after sign-in. Tests validate key summary cards, branch operation counts, assignment and notification panels, date controls, top store lists, sidebar navigation, session handling, and responsive behavior.
+
+### Vendor Performance
+
+<img src="docs/screenshots/vendor-performance.png" alt="Vendor Performance page" width="900">
+
+The Vendor Performance page is used to inspect vendor-level operational metrics. The suite checks page loading, headers, filters, date controls, data areas, export actions, row actions, and pagination behavior.
+
+### Reports
+
+<img src="docs/screenshots/reports.png" alt="Reports page" width="900">
+
+The Reports area groups multiple operational report tabs in one module. Tests cover fulfillment, cancellation reasons, orders count, busy vendors, menu optimization, sales, and target offer usage report flows, including date filters, store filters, tabs, search actions, and downloads.
+
+### Analysis
+
+<img src="docs/screenshots/analysis.png" alt="Analysis page" width="900">
+
+The Analysis page validates performance dashboards and comparison views. The automated checks focus on chart rendering, date controls, store comparison inputs, summary content, and page stability.
+
+### Stores
+
+<img src="docs/screenshots/stores.png" alt="Stores page" width="900">
+
+The Stores page covers store search, filtering, data-table validation, status controls, and store detail actions. The tests confirm that the module can load store data, search for records, and handle common management actions safely.
+
+### Store Ratings
+
+<img src="docs/screenshots/store-ratings.png" alt="Store Ratings page" width="900">
+
+The Store Ratings page is used to filter and export rating records. Tests validate store and rating-type filters, combined search behavior, clear actions, date filters, export behavior, pagination, and first-row detail actions.
+
+### Offers
+
+<img src="docs/screenshots/offers.png" alt="Offers page" width="900">
+
+The Offers page is tested as a full CRUD workflow. Coverage includes creating an offer, searching for it, editing it, deleting it, plus table search, pagination, export availability, and failure handling for incomplete create forms.
+
+### Order Management
+
+<img src="docs/screenshots/order-management.png" alt="Order Management page" width="900">
+
+The Order Management page covers order list inspection and operational filters. Tests validate the table shell, status dropdowns, secondary filters, date-range search, text search, clear actions, export behavior, pagination, and view-order action paths.
+
+### Portfolio Analysis
+
+<img src="docs/screenshots/portfolio-analysis.png" alt="Portfolio Analysis page" width="900">
+
+The Portfolio Analysis page focuses on account and portfolio reporting workflows. Tests verify table structure, search behavior, pagination, first-row actions, and download availability where the backend allows it.
+
+### Accounts Management
+
+<img src="docs/screenshots/accounts-management.png" alt="Accounts Management page" width="900">
+
+The Accounts Management page validates account search and operational table behavior. Coverage includes filters, table structure, pagination, row edit/action paths, bulk upload selection, account-manager list download, assign actions, and delegate actions.
+
+### Campaigns
+
+<img src="docs/screenshots/campaigns.png" alt="Campaigns page" width="900">
+
+The Campaigns page is one of the largest workflow areas in the suite. Tests cover campaign creation, management, edit and delete flows, promo code configuration, campaign offers, free delivery, store pinning, fixed delivery fee management, filters, search, and pagination.
+
+### Smart Boost Campaign
+
+<img src="docs/screenshots/smart-boost-campaign.png" alt="Smart Boost Campaign page" width="900">
+
+The Smart Boost Campaign page covers boosted campaign management. Tests validate the page shell, filters, search, clear behavior, pagination, creation flow, export availability, row actions, top-up dialogs, and terminate dialogs.
+
+### Driver KPI Slabs
+
+<img src="docs/screenshots/driver-kpi-slabs.png" alt="Driver KPI Slabs page" width="900">
+
+Driver KPI Slabs cover fare-scheme-style configuration pages. The suite validates average attendance, block count, number of fines, redispatch rate, and speed of delivery slab schemes, including create, edit, delete, search, and table behavior.
+
+### Reels
+
+<img src="docs/screenshots/reels.png" alt="Reels page" width="900">
+
+The Reels page tests media-style content management. Coverage includes table loading, create/update/delete flows, multi-step form behavior, upload-area visibility, search, filters, pagination, and row-level actions.
 
 ### TM Done Club Analytics
 
-![TM Done Club Analytics](docs/screenshots/tm-done-club-analytics.png)
+<img src="docs/screenshots/tm-done-club-analytics.png" alt="TM Done Club Analytics page" width="900">
+
+The TM Done Club Analytics page verifies club performance visibility. Tests cover analytics cards, navigation behavior, redirect handling, and module stability for users with varying permissions.
+
+### TM Done Club Plans
+
+<img src="docs/screenshots/tm-done-club-plans.png" alt="TM Done Club Plans page" width="900">
+
+The Subscription Plans page covers plan configuration for club members. Tests validate plan creation, benefit and price fields, updates, deletes, table actions, and safe handling of required fields.
+
+### TM Done Club Subscriptions
+
+<img src="docs/screenshots/tm-done-club-subscriptions.png" alt="TM Done Club Subscriptions page" width="900">
+
+The Subscriptions page focuses on member subscription reporting. Tests validate table visibility, report-style filters, data loading, and navigation inside the TM Done Club module.
+
+### TM Done Club Cancellation Reasons
+
+<img src="docs/screenshots/tm-done-club-cancellation-reasons.png" alt="TM Done Club Cancellation Reasons page" width="900">
+
+The Cancellation Reasons page covers the configuration and reporting of cancellation reason data. Tests verify page loading, list visibility, create/update/delete paths where available, and stable module navigation.
 
 ## Project Structure
 
@@ -42,6 +150,8 @@ tests/
   07-Stores Ratings/
   08-Offers/
   09-Order Management/
+  10-Portfolio Analysis/
+  11-Accounts Management/
   12-Campaigns/
   13-Smart Boost Campaign/
   14-Driver KPI Slabs/
@@ -50,6 +160,8 @@ tests/
   helpers/
 docs/
   screenshots/
+scripts/
+  capture-readme-screenshots.mjs
 playwright.config.js
 package.json
 ```
@@ -118,6 +230,14 @@ npm run test:headed
 npm run test:debug
 npm run report
 ```
+
+### Refresh README screenshots
+
+```bash
+node scripts/capture-readme-screenshots.mjs
+```
+
+This command signs in to the UAT console and refreshes the screenshots in `docs/screenshots/`.
 
 ## Notes
 

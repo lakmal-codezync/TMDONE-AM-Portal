@@ -64,11 +64,11 @@ The page snapshot showed the Offers card is structured as:
 
 The fixed test now follows this robust workflow:
 
-1. **Login** → Navigate to Campaigns
-2. **Search & Open** → Find "Auto Campaign" and click View
-3. **Open Offers** → Click the Offers card using improved selectors
-4. **Create Offer** → Click Create button and fill form
-5. **Verify Search** → Search for the created offer and confirm visibility
+1. **Login** -> Navigate to Campaigns
+2. **Search & Open** -> Find "Auto Campaign" and click View
+3. **Open Offers** -> Click the Offers card using improved selectors
+4. **Create Offer** -> Click Create button and fill form
+5. **Verify Search** -> Search for the created offer and confirm visibility
 
 ## Key Improvements
 
@@ -88,4 +88,4 @@ The fixed test now follows this robust workflow:
 - Each run creates a new offer, so the test database will grow over time
 - The test respects the 300s timeout (5 minutes)
 - All helpers use `.catch(() => false)` to prevent test failures from missing UI elements
-- The test validates the complete workflow: navigation → creation → verification
+- The test validates the complete workflow: navigation -> creation -> verification
