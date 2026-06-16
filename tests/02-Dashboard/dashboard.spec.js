@@ -191,11 +191,11 @@ test('DASH-05: User profile menu opens and shows Logout option', async ({ page }
 // ============================================================
 // DASH-05b: Change Password Functionality
 // ============================================================
-// Checks: Can the admin change their password using the profile menu?
-// This script automates opening the change password modal,
-// entering the current password, the new password, and confirming it.
+// Checks: Can the admin open the change password form using the profile menu?
+// This intentionally avoids submitting the form because the suite uses a
+// shared UAT account for later tests.
 // ============================================================
-test('DASH-05b: User profile menu - Change Password functionality', async ({ page }) => {
+test('DASH-05b: User profile menu - Change Password form opens', async ({ page }) => {
   await loginToApp(page);
   await page.goto(DASHBOARD_URL);
   await page.waitForLoadState('networkidle');
@@ -228,22 +228,14 @@ test('DASH-05b: User profile menu - Change Password functionality', async ({ pag
     const inputCount = await passwordInputs.count();
 
     if (inputCount >= 3) {
-      // Typically: 1st is Current, 2nd is New, 3rd is Confirm New
-      await passwordInputs.nth(0).fill('123123'); // User's requested current password
-      await passwordInputs.nth(1).fill('123123'); // User's requested new password
-      await passwordInputs.nth(2).fill('123123'); // Confirm new password
+      // Typically: 1st is Current, 2nd is New, 3rd is Confirm New.
+      await expect(passwordInputs.nth(0)).toBeVisible();
+      await expect(passwordInputs.nth(1)).toBeVisible();
+      await expect(passwordInputs.nth(2)).toBeVisible();
 
-      // Find and click the Submit/Update/Save button (usually primary color or has specific text)
-      const submitBtn = page.locator('button[type="submit"], button:has-text("Save"), button:has-text("Update"), button:has-text("Submit"), button:has-text("Change")').last();
-
-      const submitVisible = await submitBtn.isVisible().catch(() => false);
-      if (submitVisible) {
-        await submitBtn.click();
-        await page.waitForTimeout(3000); // Wait for the network request / success message
-        console.log('✅ DASH-05b PASSED: Change password form filled and submitted.');
-      } else {
-        console.log('⚠️ DASH-05b SKIPPED: Submit button not found on the Change Password form.');
-      }
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+      console.log('DASH-05b PASSED: Change password form opened without changing shared credentials.');
     } else {
       console.log(`⚠️ DASH-05b SKIPPED: Expected 3 password fields, but found ${inputCount}. Form structure may be different.`);
     }

@@ -1,11 +1,12 @@
 
 
 import { test, expect } from '@playwright/test';
+import { CREDENTIALS } from '../helpers/loginHelper.js';
 
 // ===================== CONSTANTS ============================
-const LOGIN_URL = 'https://consoledemo.uat.v3.dr.tmd1.org/#/authentication/signin';
-const VALID_EMAIL = 'nimsara@codezync.com';
-const VALID_PASSWORD = '123123';
+const LOGIN_URL = CREDENTIALS.loginUrl;
+const VALID_EMAIL = CREDENTIALS.email;
+const VALID_PASSWORD = CREDENTIALS.password;
 
 // Shared locator helpers (used across multiple tests)
 /** @param {import('@playwright/test').Page} page */

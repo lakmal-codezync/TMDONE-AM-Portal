@@ -9,10 +9,12 @@ import { expect } from '@playwright/test';
 // ===================== CONSTANTS ============================
 // Centralized credentials. Updating these values applies to all tests.
 export const CREDENTIALS = {
-  email: 'nimsara@codezync.com',
-  password: '123123',
-  baseUrl: 'https://consoledemo.uat.v3.dr.tmd1.org',
-  loginUrl: 'https://consoledemo.uat.v3.dr.tmd1.org/#/authentication/signin',
+  email: process.env.TMDONE_EMAIL || 'nimsara@codezync.com',
+  password: process.env.TMDONE_PASSWORD || '123123',
+  baseUrl: process.env.TMDONE_BASE_URL || 'https://consoledemo.uat.v3.dr.tmd1.org',
+  get loginUrl() {
+    return `${this.baseUrl}/#/authentication/signin`;
+  },
 };
 
 // ============================================================
@@ -47,6 +49,15 @@ async function dismissSweetAlert(page) {
   }
   await page.locator('.swal2-container, .swal2-popup').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
   return true;
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ */
+async function getSweetAlertText(page) {
+  const alert = page.locator('.swal2-popup, .swal2-container.swal2-backdrop-show').filter({ visible: true }).first();
+  if (!(await alert.isVisible().catch(() => false))) return '';
+  return (await alert.innerText().catch(() => '')).trim();
 }
 
 /**
@@ -101,12 +112,19 @@ export async function loginToApp(page) {
     await waitForNoSpinner(page);
     await page.waitForURL((url) => !url.toString().includes('signin'), { timeout: 45000 }).catch(() => {});
     await page.waitForLoadState('domcontentloaded').catch(() => {});
+    const loginAlertText = await getSweetAlertText(page);
     const dismissedLoginAlert = await dismissSweetAlert(page);
     await page.waitForTimeout(1500);
 
     if (!page.url().includes('signin')) {
       console.log('Login success! URL:', page.url());
       return;
+    }
+
+    if (/check your username and password|invalid|incorrect|unauthori[sz]ed/i.test(loginAlertText)) {
+      throw new Error(
+        `Login failed: ${loginAlertText}. Check TMDONE_EMAIL/TMDONE_PASSWORD or the shared test account state.`
+      );
     }
 
     console.log(`Login still on signin after attempt ${attempt}${dismissedLoginAlert ? ' (alert dismissed)' : ''}; retrying...`);
