@@ -17,22 +17,33 @@ const passwordInput = (page) => page.locator('input[type="password"]').first();
 const loginButton = (page) =>
   page.locator('button[type="submit"], button:has-text("Sign in"), button:has-text("SIGN IN")').first();
 
+/** @param {import('@playwright/test').Page} page */
+async function openLoginPage(page) {
+  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
+  await expect(emailInput(page)).toBeVisible({ timeout: 30000 });
+  await expect(passwordInput(page)).toBeVisible({ timeout: 30000 });
+}
+
+/** @param {import('@playwright/test').Page} page */
+async function waitForSignedIn(page) {
+  await page.waitForURL((url) => !url.toString().includes('signin'), { timeout: 60000 });
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+}
+
 // ============================================================
 // AUTH-01: Valid Login
 // Entering correct username and password should log the user in
 // and redirect away from the sign-in page.
 // ============================================================
 test('AUTH-01: Valid login - correct credentials redirect to dashboard', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   await emailInput(page).fill(VALID_EMAIL);
   await passwordInput(page).fill(VALID_PASSWORD);
   await loginButton(page).click();
 
   // Wait until the URL changes away from the signin page (max 30s)
-  await page.waitForURL((url) => !url.toString().includes('signin'), { timeout: 30000 });
-  await page.waitForLoadState('networkidle');
+  await waitForSignedIn(page);
 
   const currentUrl = page.url();
   const isLoggedIn = !currentUrl.includes('signin');
@@ -47,8 +58,7 @@ test('AUTH-01: Valid login - correct credentials redirect to dashboard', async (
 // keep the user on the sign-in page.
 // ============================================================
 test('AUTH-02: Invalid username - wrong email shows error', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   await emailInput(page).fill('wronguser@notexisting.com');
   await passwordInput(page).fill(VALID_PASSWORD);
@@ -67,8 +77,7 @@ test('AUTH-02: Invalid username - wrong email shows error', async ({ page }) => 
 // error and keep the user on the sign-in page.
 // ============================================================
 test('AUTH-03: Invalid password - correct email + wrong password shows error', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   await emailInput(page).fill(VALID_EMAIL);
   await passwordInput(page).fill('WrongPassword999!');
@@ -87,8 +96,7 @@ test('AUTH-03: Invalid password - correct email + wrong password shows error', a
 // submission and keep the user on the sign-in page.
 // ============================================================
 test('AUTH-04: Empty fields - login should be blocked', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Click login without filling anything
   await loginButton(page).click();
@@ -111,8 +119,7 @@ test('AUTH-04: Empty fields - login should be blocked', async ({ page }) => {
 // should show validation and block login.
 // ============================================================
 test('AUTH-05: Username empty only - validation triggered even with password', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Leave email empty, fill only password
   await passwordInput(page).fill(VALID_PASSWORD);
@@ -131,8 +138,7 @@ test('AUTH-05: Username empty only - validation triggered even with password', a
 // should show validation and block login.
 // ============================================================
 test('AUTH-06: Password empty only - validation triggered even with username', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Fill email, leave password empty
   await emailInput(page).fill(VALID_EMAIL);
@@ -151,8 +157,7 @@ test('AUTH-06: Password empty only - validation triggered even with username', a
 // between "password" (hidden) and "text" (visible).
 // ============================================================
 test('AUTH-07: Password hide/show toggle - eye icon works correctly', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Use a stable locator based on position (2nd input) rather than type attribute,
   // because type changes from "password" → "text" when eye icon is clicked,
@@ -198,8 +203,7 @@ test('AUTH-07: Password hide/show toggle - eye icon works correctly', async ({ p
 // This ensures the form is keyboard-accessible.
 // ============================================================
 test('AUTH-08: Tab navigation - keyboard moves focus username → password → button', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Click on the email field to start
   await emailInput(page).click();
@@ -229,8 +233,7 @@ test('AUTH-08: Tab navigation - keyboard moves focus username → password → b
 // submit the form and navigate to the dashboard.
 // ============================================================
 test('AUTH-09: Login button click - submits form and redirects to dashboard', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   await emailInput(page).fill(VALID_EMAIL);
   await passwordInput(page).fill(VALID_PASSWORD);
@@ -240,7 +243,7 @@ test('AUTH-09: Login button click - submits form and redirects to dashboard', as
   await expect(btn).toBeEnabled();
   await btn.click();
 
-  await page.waitForURL((url) => !url.toString().includes('signin'), { timeout: 30000 });
+  await waitForSignedIn(page);
   expect(page.url()).not.toContain('signin');
 
   console.log('✅ AUTH-09 PASSED: Login button click submitted form correctly.');
@@ -252,8 +255,7 @@ test('AUTH-09: Login button click - submits form and redirects to dashboard', as
 // the form — same as clicking the Login button.
 // ============================================================
 test('AUTH-10: Enter key login - pressing Enter submits the form', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   await emailInput(page).fill(VALID_EMAIL);
   await passwordInput(page).fill(VALID_PASSWORD);
@@ -261,7 +263,7 @@ test('AUTH-10: Enter key login - pressing Enter submits the form', async ({ page
   // Press Enter inside the password field
   await passwordInput(page).press('Enter');
 
-  await page.waitForURL((url) => !url.toString().includes('signin'), { timeout: 30000 });
+  await waitForSignedIn(page);
   expect(page.url()).not.toContain('signin');
 
   console.log('✅ AUTH-10 PASSED: Enter key correctly submitted the login form.');
@@ -273,8 +275,7 @@ test('AUTH-10: Enter key login - pressing Enter submits the form', async ({ page
 // placeholders so users know what to enter.
 // ============================================================
 test('AUTH-11: Field placeholder/label - username and password labels are visible', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Check for label or placeholder text related to email/username
   const emailLabel = page.locator(
@@ -307,8 +308,7 @@ test('AUTH-11: Field placeholder/label - username and password labels are visibl
 // dots/asterisks — type attribute must be "password".
 // ============================================================
 test('AUTH-12: Password masked by default - type is "password" on load', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   const pwdField = passwordInput(page);
   await expect(pwdField).toBeVisible();
@@ -330,8 +330,7 @@ test('AUTH-12: Password masked by default - type is "password" on load', async (
 // and properly rendered on the page.
 // ============================================================
 test('AUTH-13: UI alignment - all form elements are visible and rendered', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // All key elements must be present and visible
   await expect(emailInput(page)).toBeVisible();
@@ -372,8 +371,7 @@ test('AUTH-13: UI alignment - all form elements are visible and rendered', async
 // should ideally be trimmed by the application.
 // ============================================================
 test('AUTH-14: Whitespace handling - leading/trailing spaces in credentials', async ({ page }) => {
-  await page.goto(LOGIN_URL);
-  await page.waitForLoadState('networkidle');
+  await openLoginPage(page);
 
   // Fill email with leading/trailing whitespace
   // If the app trims, this should work just like a normal login
