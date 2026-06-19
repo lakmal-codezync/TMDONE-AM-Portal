@@ -260,9 +260,10 @@ test.describe('Order Management Module - Feature Tests', () => {
     }
 
     // Total results label
-    const totalLabel = page.locator('*').filter({ hasText: /total.*results/i }).first();
-    if (await totalLabel.isVisible().catch(() => false)) {
-      console.log(`ℹ️ Total: "${(await totalLabel.textContent())?.trim()}"`);
+    const pageText = await page.locator('body').innerText().catch(() => '');
+    const totalMatch = pageText.match(/Total\s+\d+\s+results\s+found/i);
+    if (totalMatch) {
+      console.log(`ℹ️ Total: "${totalMatch[0]}"`);
     }
 
     console.log('✅ OM-01 PASSED: Order Management page data table renders correctly.');
