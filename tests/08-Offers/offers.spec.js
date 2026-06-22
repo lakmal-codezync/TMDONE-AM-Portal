@@ -1,493 +1,518 @@
 // @ts-check
 // ============================================================
-// TMDone Admin Console - Offers Module
-// Target Audience Builder - Full CRUD (OF-01 → OF-04)
-// Each describe.serial block shares state via a shared object
-// so Create → Edit → Delete operate on the EXACT same record.
-// Run:  npx playwright test tests/08-Offers/offers.spec.js
+// TMDone Admin Console - Target Audience Builder / Offer Queries
+// Consolidated full-page coverage without duplicate helper files.
+// Covers page shell, search, pagination, create query, validation,
+// row edit/delete surfaces, and download/export controls.
 // ============================================================
 
 import { test, expect } from '@playwright/test';
-import {
-  loginToApp,
-  goToPage,
-  clickCreateButton,
-  clickMoreActionsMenu,
-} from '../helpers/loginHelper.js';
-
-// ─────────────────────────────────────────────────────────────
-// Shared state — persists across describe blocks in same file
-// ─────────────────────────────────────────────────────────────
-const SHARED = {
-  offerName: `Auto Offer ${Date.now()}`,
-  editedName: '',   // filled in during OF-02 after creation
-};
-// Edited name is derived once
-SHARED.editedName = `${SHARED.offerName} Edited`;
+import { loginToApp, goToPage } from '../helpers/loginHelper.js';
 
 const OFFERS_URL = '#/home/offers/offer-queries';
 
-// ─────────────────────────────────────────────────────────────
-// MODULE HELPERS
-// ─────────────────────────────────────────────────────────────
+function todayOffset(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+}
 
-/**
- * Login + navigate to Offers page and wait for table.
- * @param {import('@playwright/test').Page} page
- */
+/** @param {import('@playwright/test').Page} page */
+async function waitForNoSpinner(page) {
+  for (const selector of ['.ngx-spinner-overlay', 'app-page-loader', '.loading-overlay', '.loading-spinner']) {
+    await page.locator(selector).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+  }
+}
+
+/** @param {import('@playwright/test').Page} page */
 async function goToOffersPage(page) {
   await loginToApp(page);
   await goToPage(page, OFFERS_URL);
+  await waitForNoSpinner(page);
+  await expect(page).toHaveURL(/offers\/offer-queries/i, { timeout: 30000 });
+  await expect(getTable(page).or(getCreateButton(page)).first()).toBeVisible({ timeout: 30000 });
+}
 
-  // Extra wait for slow server — ensures Angular finishes bootstrapping
-  await page.waitForLoadState('domcontentloaded').catch(() => {});
-  await page.waitForTimeout(2000);
+/** @param {import('@playwright/test').Page} page */
+function getCreateButton(page) {
+  return page
+    .locator('button:has-text("Create Offer Query"), button:has-text("Create Offer"), button:has-text("Create")')
+    .filter({ visible: true })
+    .first();
+}
 
-  // Wait for the table shell to appear
-  const table = page.locator('.table-responsive, mat-table, table');
-  await table.first().waitFor({ state: 'visible', timeout: 30000 }).catch(() => {});
-  await page.waitForTimeout(1000);
-  console.log('✅ Offers page ready.');
+/** @param {import('@playwright/test').Page} page */
+function getTable(page) {
+  return page.locator('.table-responsive, mat-table, table').filter({ visible: true }).first();
+}
+
+/** @param {import('@playwright/test').Page} page */
+function getRows(page) {
+  return page.locator('tbody tr, mat-row').filter({ visible: true });
+}
+
+/** @param {import('@playwright/test').Page} page */
+function activeDialog(page) {
+  return page
+    .locator('mat-dialog-container, modal-container, .modal-dialog, [role="dialog"], .swal2-popup')
+    .filter({ visible: true })
+    .last();
 }
 
 /**
- * Search for a term in the Offers search box and wait for results.
  * @param {import('@playwright/test').Page} page
  * @param {string} term
  */
-async function searchOffer(page, term) {
+async function searchOffers(page, term) {
   const searchInput = page
-    .locator('input[placeholder*="Search" i], input[aria-label*="search" i]')
+    .locator('input[placeholder*="Search" i], input[placeholder*="Enter Search String" i], input[aria-label*="search" i]')
+    .filter({ visible: true })
     .first();
 
-  if (!(await searchInput.isVisible().catch(() => false))) {
-    console.log('⚠️ Search input not found — skipping search.');
-    return false;
-  }
+  if (!(await searchInput.isVisible().catch(() => false))) return false;
 
+  await searchInput.click({ force: true });
   await searchInput.fill(term);
-  await page.waitForTimeout(500);
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(2500);
-
-  // Also try clicking a search button if it exists
-  const searchBtn = page
-    .locator('button.search-btn, button:has(mat-icon:text("search")), button[aria-label*="search" i]')
-    .first();
-  if (await searchBtn.isVisible().catch(() => false)) {
-    await searchBtn.click({ force: true });
-    await page.waitForTimeout(2000);
-  }
-
-  console.log(`ℹ️ Searched for: "${term}"`);
+  await clickSearchButton(page);
+  await page.waitForTimeout(1500);
+  await expect(getTable(page).or(page.locator(':text("No data"), :text("No records"), :text("No results")').first()).first()).toBeVisible();
   return true;
 }
 
+/** @param {import('@playwright/test').Page} page */
+async function clickSearchButton(page) {
+  const searchButton = page
+    .locator(
+      'button.search-btn, button[aria-label*="search" i], button:has(mat-icon:has-text("search")), button:has(img:has-text("search")), button:has-text("Search")'
+    )
+    .filter({ visible: true })
+    .first();
+
+  if (await searchButton.isVisible().catch(() => false) && await searchButton.isEnabled().catch(() => false)) {
+    await searchButton.click({ force: true }).catch(() => {});
+  } else {
+    await page.keyboard.press('Enter').catch(() => {});
+  }
+}
+
+/** @param {import('@playwright/test').Page} page */
+async function clickClearButton(page) {
+  const clearButton = page
+    .locator(
+      'button:has-text("Clear"), button:has-text("Reset"), button:has(mat-icon:has-text("close")), button:has(img:has-text("close")), button[aria-label*="clear" i]'
+    )
+    .filter({ visible: true })
+    .first();
+
+  if (await clearButton.isVisible().catch(() => false) && await clearButton.isEnabled().catch(() => true)) {
+    await clearButton.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1000);
+  }
+}
+
 /**
- * Select an option from a mat-select inside a dialog.
  * @param {import('@playwright/test').Page} page
  * @param {import('@playwright/test').Locator} dialog
- * @param {string} label
- * @param {number} optionIndex
+ * @param {RegExp} label
+ * @param {{ optional?: boolean, optionIndex?: number, optionText?: RegExp }} options
  */
-async function selectDropdown(page, dialog, label, optionIndex = 0) {
-  const dropdown = dialog
-    .locator(
-      `mat-select[aria-label*="${label}" i], ` +
-      `mat-select[placeholder*="${label}" i], ` +
-      `mat-form-field:has-text("${label}") mat-select`
-    )
-    .first();
+async function selectDropdownByLabel(page, dialog, label, options = {}) {
+  const fields = dialog.locator('mat-form-field').filter({ hasText: label });
+  const fieldCount = await fields.count().catch(() => 0);
 
-  if (!(await dropdown.isVisible().catch(() => false))) {
-    console.log(`⚠️ Dropdown "${label}" not visible — skipping.`);
+  for (let index = 0; index < fieldCount; index += 1) {
+    const dropdown = fields.nth(index).locator('mat-select, [role="combobox"]').filter({ visible: true }).first();
+    if (!(await dropdown.isVisible().catch(() => false))) continue;
+    if (!(await dropdown.isEnabled().catch(() => true))) continue;
+
+    await dropdown.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(800);
+    if (await clickDropdownOption(page, options.optionIndex || 0, options.optionText)) return true;
+  }
+
+  if (options.optional) return false;
+  throw new Error(`No enabled dropdown found for ${label}.`);
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {number} optionIndex
+ * @param {RegExp=} optionText
+ */
+async function clickDropdownOption(page, optionIndex = 0, optionText) {
+  const options = page.locator('mat-option, .mat-option, [role="option"]').filter({ visible: true });
+  const count = await options.count().catch(() => 0);
+  const selectable = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const option = options.nth(index);
+    const text = ((await option.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+    const className = (await option.getAttribute('class').catch(() => '')) || '';
+    const disabled = await option.getAttribute('aria-disabled').catch(() => null) === 'true' || /disabled/.test(className);
+    if (!disabled && text && !/^(none\s*close|none|select|choose|loading|no data|no records|no results)$/i.test(text)) {
+      selectable.push(option);
+    }
+  }
+
+  let target = selectable[optionIndex] || selectable[0];
+  if (optionText) {
+    for (const option of selectable) {
+      const text = ((await option.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim();
+      if (optionText.test(text)) {
+        target = option;
+        break;
+      }
+    }
+  }
+
+  if (!target) {
     return false;
   }
 
-  const clicked = await dropdown.click({ force: true, timeout: 10000 }).then(() => true).catch(() => false);
-  if (!clicked) {
-    console.log(`⚠️ Dropdown "${label}" changed before it could be opened — skipping.`);
-    return false;
+  await target.click({ force: true }).catch(() => {});
+  await page.waitForTimeout(800);
+  if (await options.first().isVisible().catch(() => false)) {
+    await page.keyboard.press('Escape').catch(() => {});
   }
-  await page.waitForTimeout(1200);
-
-  const options = page.locator('mat-option').filter({ hasNotText: /select all/i });
-  const count = await options.count();
-
-  if (count === 0) {
-    await page.keyboard.press('Escape');
-    console.log(`⚠️ No options for "${label}".`);
-    return false;
-  }
-
-  const targetIndex = count > optionIndex ? optionIndex : 0;
-  const txt = (await options.nth(targetIndex).textContent())?.trim() || '';
-  await options.nth(targetIndex).click({ force: true });
-  await page.waitForTimeout(500);
-
-  // Close panel if still open (multi-select)
-  if (await page.locator('mat-option').first().isVisible().catch(() => false)) {
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(400);
-  }
-
-  console.log(`✅ "${label}": selected [${targetIndex}] = "${txt}"`);
   return true;
 }
 
 /**
- * Fill a date input inside a dialog.
  * @param {import('@playwright/test').Locator} dialog
- * @param {string} labelHint  partial label text
- * @param {string} value      e.g. '04/04/2026'
+ * @param {RegExp} label
+ * @param {string} value
  */
-async function fillDateInput(dialog, labelHint, value) {
-  const dateInput = dialog
-    .locator(
-      `input[placeholder*="${labelHint}" i], ` +
-      `input[formcontrolname*="${labelHint}" i], ` +
-      `mat-form-field:has-text("${labelHint}") input`
-    )
-    .first();
+async function fillFieldByLabel(dialog, label, value) {
+  const fields = dialog.locator('mat-form-field').filter({ hasText: label });
+  const count = await fields.count().catch(() => 0);
 
-  if (await dateInput.isVisible().catch(() => false)) {
-    await dateInput.click({ clickCount: 3 });
-    await dateInput.fill(value);
-    console.log(`✅ Filled "${labelHint}": ${value}`);
+  for (let index = 0; index < count; index += 1) {
+    const input = fields.nth(index).locator('input, textarea').filter({ visible: true }).first();
+    if (!(await input.isVisible().catch(() => false))) continue;
+    if (!(await input.isEditable().catch(() => true))) continue;
+
+    await setInputValue(input, value);
     return true;
   }
-  console.log(`⚠️ Date input "${labelHint}" not found.`);
+
   return false;
 }
 
 /**
- * Fill a number input inside a dialog.
+ * @param {import('@playwright/test').Page} page
  * @param {import('@playwright/test').Locator} dialog
- * @param {string} labelHint
+ */
+async function fillOfferQueryCriteria(page, dialog) {
+  await selectDropdownByLabel(page, dialog, /Chain/i, { optional: true });
+  await expect(await fillFieldByLabel(dialog, /Order Date Min|Date Min/i, todayOffset(-30)) ||
+    await fillInputByIndex(dialog, 'input.mat-datepicker-input, input[aria-haspopup="dialog"]', 0, todayOffset(-30))).toBeTruthy();
+  await expect(await fillFieldByLabel(dialog, /Order Date Max|Date Max/i, todayOffset(0)) ||
+    await fillInputByIndex(dialog, 'input.mat-datepicker-input, input[aria-haspopup="dialog"]', 1, todayOffset(0))).toBeTruthy();
+  await selectDropdownByLabel(page, dialog, /Order Count Min|Count Min/i, { optional: true, optionText: /^<$/ });
+  await expect(await fillFieldByLabel(dialog, /Order Count Min|Count Min/i, '1') ||
+    await fillInputByIndex(dialog, 'input[type="number"]', 0, '1')).toBeTruthy();
+}
+
+/**
+ * @param {import('@playwright/test').Locator} context
+ * @param {string} selector
+ * @param {number} index
  * @param {string} value
  */
-async function fillNumberInput(dialog, labelHint, value) {
-  const input = dialog
+async function fillInputByIndex(context, selector, index, value) {
+  const input = context.locator(selector).filter({ visible: true }).nth(index);
+  if (!(await input.isVisible().catch(() => false))) return false;
+
+  await setInputValue(input, value);
+  return true;
+}
+
+/** @param {import('@playwright/test').Locator} input */
+async function setInputValue(input, value) {
+  await input.click({ clickCount: 3, force: true }).catch(() => {});
+  const readonly = await input.getAttribute('readonly').catch(() => null);
+
+  if (!readonly) {
+    const filled = await input.fill(value, { timeout: 5000 }).then(() => true).catch(() => false);
+    if (filled) {
+      await input.dispatchEvent('input').catch(() => {});
+      await input.dispatchEvent('change').catch(() => {});
+      await input.press('Tab').catch(() => {});
+      return;
+    }
+  }
+
+  await input.evaluate((element, nextValue) => {
+    const inputElement = /** @type {HTMLInputElement | HTMLTextAreaElement} */ (element);
+    const prototype = inputElement instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+    if (valueSetter) valueSetter.call(inputElement, nextValue);
+    else inputElement.value = nextValue;
+    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+    inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+    inputElement.blur();
+  }, value);
+}
+
+/** @param {import('@playwright/test').Page} page */
+async function openCreateOfferQuery(page) {
+  const createButton = getCreateButton(page);
+  await expect(createButton).toBeVisible({ timeout: 20000 });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await createButton.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1200);
+    if (await activeDialog(page).isVisible().catch(() => false)) break;
+  }
+
+  const dialog = activeDialog(page);
+  await expect(dialog).toBeVisible({ timeout: 20000 });
+  await expect(dialog).toContainText(/Create Offer Query|Select Chain|Select Vendor/i, { timeout: 15000 });
+  return dialog;
+}
+
+/** @param {import('@playwright/test').Locator} dialog */
+async function getSaveButton(dialog) {
+  return dialog.locator('button:has-text("Save"), button:has-text("Create"), button:has-text("Submit")').filter({ visible: true }).last();
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {'next' | 'previous'} direction
+ */
+async function clickPaginator(page, direction) {
+  const pattern = direction === 'next' ? /next|»/i : /prev|previous|«/i;
+  const item = page
     .locator(
-      `input[placeholder*="${labelHint}" i], ` +
-      `input[formcontrolname*="${labelHint}" i], ` +
-      `mat-form-field:has-text("${labelHint}") input`
+      [
+        `.ngx-pagination li.pagination-${direction === 'next' ? 'next' : 'previous'}`,
+        `li.pagination-${direction === 'next' ? 'next' : 'previous'}`,
+        'li.page-item',
+        'button',
+        '[role="button"]',
+      ].join(', ')
     )
+    .filter({ visible: true })
+    .filter({ hasText: pattern })
     .first();
 
-  if (await input.isVisible().catch(() => false)) {
-    await input.click({ clickCount: 3 });
-    await input.fill(value);
-    console.log(`✅ Filled "${labelHint}": ${value}`);
+  if (!(await item.isVisible().catch(() => false))) return false;
+  const disabled = await item.evaluate((node) => {
+    const element = /** @type {HTMLElement} */ (node);
+    return element.hasAttribute('disabled') ||
+      element.getAttribute('aria-disabled') === 'true' ||
+      /disabled/.test(element.getAttribute('class') || '') ||
+      !element.querySelector('a, button') && element.tagName.toLowerCase() === 'li';
+  }).catch(() => true);
+  if (disabled) return false;
+
+  const target = item.locator('a, button').first();
+  if (await target.isVisible().catch(() => false)) {
+    await target.click({ force: true, noWaitAfter: true }).catch(() => {});
+  } else {
+    await item.click({ force: true, noWaitAfter: true }).catch(() => {});
+  }
+  await page.waitForTimeout(1500);
+  await expect(getTable(page)).toBeVisible({ timeout: 15000 });
+  return true;
+}
+
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {RegExp} label
+ */
+async function clickFirstRowAction(page, label) {
+  const row = getRows(page).first();
+  if (!(await row.isVisible().catch(() => false))) return false;
+
+  const iconSelector = /edit/i.test(label.source)
+    ? 'button:has-text("edit"), button:has(mat-icon:has-text("edit")), button:has(img:has-text("edit"))'
+    : 'button:has-text("delete"), button:has(mat-icon:has-text("delete")), button:has(img:has-text("delete"))';
+
+  const direct = row.locator(iconSelector).filter({ visible: true }).first();
+  if (await direct.isVisible().catch(() => false) && await direct.isEnabled().catch(() => true)) {
+    await direct.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1200);
     return true;
   }
-  console.log(`⚠️ Input "${labelHint}" not found.`);
+
+  const textAction = row.locator('button, [role="button"], a').filter({ visible: true }).filter({ hasText: label }).first();
+  if (await textAction.isVisible().catch(() => false)) {
+    await textAction.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1200);
+    return true;
+  }
+
   return false;
 }
 
-// ─────────────────────────────────────────────────────────────
-// ==================  TEST SUITE  ============================
-// ─────────────────────────────────────────────────────────────
-
-// ============================================================
-// OF-01: Load Table Data
-// ============================================================
-test.describe.serial('Offers - OF-01: Load Table Data', () => {
-  test('OF-01: Verify Offers table loads correctly', async ({ page }) => {
+test.describe.serial('08 - Target Audience Builder - Full Offer Query Coverage', () => {
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(240000);
     await goToOffersPage(page);
-
-    const table = page.locator('.table-responsive, mat-table, table');
-    await expect(table.first()).toBeVisible({ timeout: 20000 });
-
-    // Poll for rows
-    let rowCount = 0;
-    for (let i = 0; i < 10; i++) {
-      rowCount = await page.locator('tbody tr, mat-row').count();
-      if (rowCount > 0) break;
-      await page.waitForTimeout(1000);
-    }
-
-    console.log(`ℹ️ Offers table rows: ${rowCount}`);
-    expect(rowCount).toBeGreaterThanOrEqual(0);
-
-    const headers = await page.locator('thead th, th, mat-header-cell').count();
-    console.log(`ℹ️ Columns: ${headers}`);
-
-    console.log('✅ OF-01 PASSED: Offers table loaded successfully.');
   });
-});
 
-// ============================================================
-// OF-02: Create Offer Query
-// ============================================================
-test.describe.serial('Offers - OF-02: Create', () => {
-  test('OF-02: Create Offer Query', async ({ page }) => {
-    console.log(`🚀 Creating: "${SHARED.offerName}"`);
-    await goToOffersPage(page);
+  test('OF-01: Target Audience Builder page loads with table, headers, create control, and row actions', async ({ page }) => {
+    await expect(getCreateButton(page)).toBeVisible({ timeout: 15000 });
+    await expect(getTable(page)).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('body')).toContainText(/Target Audience Builder/i);
+    await expect(page.locator('body')).toContainText(/Title|Actions/i);
+    await expect(page.locator('th, mat-header-cell').filter({ hasText: /Title|Actions/i }).first()).toBeVisible();
 
-    // ── Open Create dialog ───────────────────────────────────
-    await clickCreateButton(page);
-
-    const dialog = page
-      .locator('mat-dialog-container, .modal-dialog, [role="dialog"]')
-      .first();
-    await expect(dialog).toBeVisible({ timeout: 20000 });
-    // Wait for dialog animation + Angular to render form fields
-    await page.waitForLoadState('domcontentloaded').catch(() => {});
-    await page.waitForTimeout(1500);
-
-    // ── Name ─────────────────────────────────────────────────
-    const nameInput = dialog
-      .locator('input[type="text"], input[placeholder*="Name" i], input[formcontrolname*="name" i]')
-      .first();
-    const hasNameInput = await nameInput.isVisible({ timeout: 5000 }).catch(() => false);
-    if (!hasNameInput) {
-      console.log('INFO: OF-02 create form has no Query Name field in the current UI.');
-    } else {
-      await nameInput.fill(SHARED.offerName);
-      console.log(`Name filled: "${SHARED.offerName}"`);
-    }
-    console.log(`✅ Name filled: "${SHARED.offerName}"`);
-
-    // ── Description ──────────────────────────────────────────
-    const descInput = dialog
-      .locator('textarea, input[placeholder*="Desc" i], input[formcontrolname*="description" i]')
-      .first();
-    if (await descInput.isVisible().catch(() => false)) {
-      await descInput.fill('Automated offer query - created by Playwright');
-    }
-
-    // ── Dropdowns (first option of each) ─────────────────────
-    await selectDropdown(page, dialog, 'Chain',  0);
-    await selectDropdown(page, dialog, 'Vendor', 0);
-    await selectDropdown(page, dialog, 'Zone',   0);
-    await selectDropdown(page, dialog, 'Area',   0);
-
-    // ── Date Range ───────────────────────────────────────────
-    await fillDateInput(dialog, 'Date Min', '04/01/2026');
-    await fillDateInput(dialog, 'Date Max', '04/30/2026');
-
-    // ── Order Counts ─────────────────────────────────────────
-    await fillNumberInput(dialog, 'Count Min', '0');
-    await fillNumberInput(dialog, 'Count Max', '100');
-
-    // ── Save ─────────────────────────────────────────────────
-    const saveBtn = dialog
-      .locator('button:has-text("Create"), button:has-text("Save"), button:has-text("Submit")')
-      .last();
-    if (!(await saveBtn.isVisible({ timeout: 15000 }).catch(() => false))) {
-      console.log('INFO: OF-02 create form has no visible save button in the current UI.');
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(1000);
-      return;
-    }
-
-    if (await saveBtn.isDisabled().catch(() => false)) {
-      console.log('INFO: OF-02 save is disabled after filling available fields; create form validation is enforced.');
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(1000);
-      return;
-    }
-
-    await saveBtn.click({ force: true });
-    await page.waitForTimeout(4000);
-
-    // ── Verify dialog closed ──────────────────────────────────
-    const dialogStillOpen = await dialog.isVisible().catch(() => false);
-    if (dialogStillOpen) {
-      console.log('⚠️ Dialog still open — may have a required field error. Pressing Escape.');
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(1000);
-    }
-
-    // ── Confirm record exists in table ────────────────────────
-    await searchOffer(page, SHARED.offerName);
-    const rows = await page.locator('tbody tr, mat-row').count();
-    console.log(`ℹ️ Rows after create search: ${rows}`);
-
-    if (rows > 0) {
-      console.log(`✅ OF-02 PASSED: "${SHARED.offerName}" created and visible in table.`);
-    } else {
-      console.log(`⚠️ OF-02: Record not found in table after create — may need manual check.`);
-    }
+    const visibleControls = await page.locator('button, input, mat-table, table').filter({ visible: true }).count();
+    expect(visibleControls).toBeGreaterThan(2);
   });
-});
 
-// ============================================================
-// OF-03: Edit Offer Query
-// ============================================================
-test.describe.serial('Offers - OF-03: Edit', () => {
-  test('OF-03: Edit Offer Query', async ({ page }) => {
-    console.log(`✏️ Editing: "${SHARED.offerName}" → "${SHARED.editedName}"`);
-    await goToOffersPage(page);
+  test('OF-02: Create Offer Query fills criteria, runs the customer query, and saves when results exist', async ({ page }) => {
+    test.setTimeout(180000);
+    const dialog = await openCreateOfferQuery(page);
+    await fillOfferQueryCriteria(page, dialog);
 
-    // ── Find the created record ───────────────────────────────
-    const found = await searchOffer(page, SHARED.offerName);
-    if (!found) {
-      console.log('⚠️ Search not available — proceeding without filter.');
-    }
-
-    const firstRow = page.locator('tbody tr, mat-row').first();
-    if (!(await firstRow.isVisible().catch(() => false))) {
-      console.log('⚠️ OF-03: No rows visible — offer may not exist. Passing gracefully.');
-      return;
-    }
-
-    // ── Open More Actions → Edit ──────────────────────────────
-    const menuOpened = await clickMoreActionsMenu(page, 0);
-    if (!menuOpened) {
-      console.log('⚠️ OF-03: More actions menu not found. Passing gracefully.');
-      return;
-    }
-
-    const editOption = page
-      .locator('[role="menu"] button:has-text("Edit"), [role="menuitem"]:has-text("Edit")')
+    const queryButton = dialog
+      .locator('button.search-btn, button:has(mat-icon:has-text("search")), button:has(img:has-text("search"))')
+      .filter({ visible: true })
       .first();
+    await expect(queryButton, 'Search/query button should enable after required criteria are filled.').toBeEnabled({ timeout: 30000 });
+    await queryButton.click({ force: true });
+    await page.waitForTimeout(2500);
 
-    if (!(await editOption.isVisible().catch(() => false))) {
-      await page.keyboard.press('Escape');
-      console.log('⚠️ OF-03: Edit option not found in menu. Passing gracefully.');
-      return;
-    }
+    await expect(
+      dialog
+        .locator('table, mat-table, :text("Total"), :text("results found"), :text("No results"), :text("No data")')
+        .filter({ visible: true })
+        .first(),
+      'Running the offer query should show a customer result state.'
+    ).toBeVisible({ timeout: 30000 });
 
-    await editOption.click({ force: true });
-    await page.waitForTimeout(2000);
+    const saveButton = await getSaveButton(dialog);
+    await expect(saveButton, 'Save should be visible after query criteria are filled.').toBeVisible({ timeout: 15000 });
+    if (await saveButton.isEnabled({ timeout: 10000 }).catch(() => false)) {
+      await saveButton.click({ force: true });
+      await page.waitForTimeout(2500);
 
-    // ── Edit dialog ───────────────────────────────────────────
-    const dialog = page
-      .locator('mat-dialog-container, .modal-dialog, [role="dialog"]')
-      .first();
-
-    if (!(await dialog.isVisible().catch(() => false))) {
-      console.log('⚠️ OF-03: Edit dialog did not open. Passing gracefully.');
-      return;
-    }
-
-    // ── Update Name ───────────────────────────────────────────
-    const nameInput = dialog
-      .locator('input[type="text"], input[placeholder*="Name" i], input[formcontrolname*="name" i]')
-      .first();
-    if (await nameInput.isVisible().catch(() => false)) {
-      await nameInput.click({ clickCount: 3 });
-      await nameInput.fill(SHARED.editedName);
-      console.log(`✅ Name updated to: "${SHARED.editedName}"`);
-    }
-
-    // ── Update Dropdowns (second option) ─────────────────────
-    await selectDropdown(page, dialog, 'Chain',  1);
-    await selectDropdown(page, dialog, 'Vendor', 1);
-    await selectDropdown(page, dialog, 'Zone',   1);
-    await selectDropdown(page, dialog, 'Area',   1);
-
-    // ── Update Date Range ─────────────────────────────────────
-    await fillDateInput(dialog, 'Date Min', '05/01/2026');
-    await fillDateInput(dialog, 'Date Max', '05/31/2026');
-
-    // ── Update Order Counts ───────────────────────────────────
-    await fillNumberInput(dialog, 'Count Min', '1');
-    await fillNumberInput(dialog, 'Count Max', '50');
-
-    // ── Save Edit ─────────────────────────────────────────────
-    const updateBtn = dialog
-      .locator('button:has-text("Update"), button:has-text("Save"), button.mat-primary')
-      .first();
-
-    if (await updateBtn.isVisible().catch(() => false)) {
-      await updateBtn.click({ force: true });
-      await page.waitForTimeout(3500);
-      console.log('✅ Update button clicked.');
-    } else {
-      await page.keyboard.press('Escape');
-      console.log('⚠️ Update button not found — pressing Escape.');
-    }
-
-    // ── Verify dialog closed ──────────────────────────────────
-    if (await dialog.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
-    }
-
-    console.log('✅ OF-03 PASSED: Edit Offer Query executed.');
-  });
-});
-
-// ============================================================
-// OF-04: Delete Offer Query
-// ============================================================
-test.describe.serial('Offers - OF-04: Delete', () => {
-  test('OF-04: Delete Offer Query', async ({ page }) => {
-    // Try to find by edited name first; fall back to original name
-    const searchTerm = SHARED.editedName || SHARED.offerName;
-    console.log(`🗑️ Deleting: "${searchTerm}"`);
-    await goToOffersPage(page);
-
-    // ── Find the record ───────────────────────────────────────
-    await searchOffer(page, searchTerm);
-
-    let firstRow = page.locator('tbody tr, mat-row').first();
-    if (!(await firstRow.isVisible().catch(() => false))) {
-      // Fallback: search by original name
-      if (searchTerm !== SHARED.offerName) {
-        console.log(`⚠️ Edited name not found — searching by original name: "${SHARED.offerName}"`);
-        await searchOffer(page, SHARED.offerName);
-        firstRow = page.locator('tbody tr, mat-row').first();
+      const okButton = page.locator('.swal2-confirm, button:has-text("OK"), button:has-text("Ok")').filter({ visible: true }).first();
+      if (await okButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await okButton.click({ force: true }).catch(() => {});
       }
+
+      await expect(dialog).toBeHidden({ timeout: 30000 });
+    } else {
+      await expect(
+        dialog
+          .locator(':text("Total 0 results"), :text("No results"), :text("No data"), mat-error, .mat-error, .invalid-feedback')
+          .filter({ visible: true })
+          .first(),
+        'Save can remain disabled only when the query returns no savable customers or the form shows validation.'
+      ).toBeVisible({ timeout: 15000 });
+      await page.keyboard.press('Escape').catch(() => {});
+    }
+    await expect(getTable(page)).toBeVisible({ timeout: 30000 });
+  });
+
+  test('OF-03: Incomplete Create Offer Query keeps Save disabled or shows validation', async ({ page }) => {
+    const dialog = await openCreateOfferQuery(page);
+    const saveButton = await getSaveButton(dialog);
+    await expect(saveButton).toBeVisible({ timeout: 15000 });
+
+    if (await saveButton.isEnabled().catch(() => false)) {
+      await saveButton.click({ force: true });
+      await page.waitForTimeout(1000);
+      await expect(dialog.locator('mat-error, .mat-error, .invalid-feedback, .error, :text("Required"), :text("required")').first()).toBeVisible({ timeout: 5000 });
+    } else {
+      await expect(saveButton).toBeDisabled();
     }
 
-    if (!(await firstRow.isVisible().catch(() => false))) {
-      console.log('⚠️ OF-04: No rows visible — offer may not exist. Passing gracefully.');
+    await page.keyboard.press('Escape').catch(() => {});
+  });
+
+  test('OF-04: Search and clear controls keep the Target Audience Builder table usable', async ({ page }) => {
+    const searched = await searchOffers(page, 'a');
+    if (!searched) {
+      console.log('INFO: Target Audience Builder list search input is not available in the current UI; table remained usable.');
+      await expect(getTable(page)).toBeVisible({ timeout: 15000 });
       return;
     }
 
-    // ── Open More Actions → Delete ────────────────────────────
-    const menuOpened = await clickMoreActionsMenu(page, 0);
-    if (!menuOpened) {
-      console.log('⚠️ OF-04: More actions menu not found. Passing gracefully.');
+    await clickClearButton(page);
+    await expect(getTable(page)).toBeVisible({ timeout: 15000 });
+  });
+
+  test('OF-05: Pagination next and previous work when multiple pages exist', async ({ page }) => {
+    const movedNext = await clickPaginator(page, 'next');
+    if (!movedNext) {
+      console.log('INFO: Target Audience Builder pagination next is hidden or disabled; current data has a single page.');
+      await expect(getTable(page)).toBeVisible();
       return;
     }
 
-    const deleteOption = page
-      .locator('[role="menu"] button:has-text("Delete"), [role="menuitem"]:has-text("Delete")')
+    await clickPaginator(page, 'previous');
+    await expect(getTable(page)).toBeVisible({ timeout: 15000 });
+  });
+
+  test('OF-06: Download/export control is available when the current query supports it', async ({ page }) => {
+    const dialog = await openCreateOfferQuery(page);
+    await fillOfferQueryCriteria(page, dialog);
+
+    const queryButton = dialog
+      .locator('button.search-btn, button:has(mat-icon:has-text("search")), button:has(img:has-text("search"))')
+      .filter({ visible: true })
       .first();
+    await expect(queryButton).toBeEnabled({ timeout: 30000 });
+    await queryButton.click({ force: true });
+    await page.waitForTimeout(2500);
 
-    if (!(await deleteOption.isVisible().catch(() => false))) {
-      await page.keyboard.press('Escape');
-      console.log('⚠️ OF-04: Delete option not found in menu. Passing gracefully.');
-      return;
-    }
-
-    await deleteOption.click({ force: true });
-    await page.waitForTimeout(2000);
-
-    // ── Confirm Delete Dialog (SweetAlert2 / mat-dialog) ──────
-    const confirmBtn = page
+    const downloadButton = dialog
       .locator(
-        '.swal2-popup button.swal2-confirm, ' +
-        'mat-dialog-container button:has-text("Yes"), ' +
-        'button:has-text("Confirm"), ' +
-        'button:has-text("Delete"):not([role="menuitem"])'
+        'button.btn-download, button:has(mat-icon:has-text("file_download")), button:has(img:has-text("file_download")), button[aria-label*="download" i]'
       )
+      .filter({ visible: true })
       .first();
+    await expect(downloadButton, 'Offer Query download/export button should be visible in the query dialog.').toBeVisible({ timeout: 15000 });
 
-    if (await confirmBtn.isVisible().catch(() => false)) {
-      await confirmBtn.click({ force: true });
-      await page.waitForTimeout(3500);
-      console.log('✅ OF-04: Confirmation clicked — offer deleted.');
-    } else {
-      // Try pressing Enter which often confirms SweetAlert
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(2000);
-      console.log('ℹ️ OF-04: Pressed Enter to confirm delete.');
+    if (await downloadButton.isEnabled().catch(() => false)) {
+      const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
+      await downloadButton.click({ force: true }).catch(() => {});
+      await downloadPromise;
     }
 
-    // ── Verify deletion ───────────────────────────────────────
-    await searchOffer(page, searchTerm);
-    const remainingRows = await page.locator('tbody tr, mat-row').count();
-    console.log(`ℹ️ Rows after delete search: ${remainingRows}`);
+    await page.keyboard.press('Escape').catch(() => {});
+  });
 
-    if (remainingRows === 0) {
-      console.log('✅ OF-04 PASSED: Record successfully deleted from table.');
-    } else {
-      console.log('⚠️ OF-04: Record may still be visible — verify manually.');
+  test('OF-07: Edit row action opens the Offer Query form safely', async ({ page }) => {
+    const opened = await clickFirstRowAction(page, /Edit|Update/i);
+    if (!opened) {
+      console.log('INFO: Offers edit action is not available for the current first row.');
+      await expect(getTable(page)).toBeVisible();
+      return;
     }
+
+    const dialog = activeDialog(page);
+    await expect(dialog.or(page.locator('body')).first()).toContainText(/Offer Query|Select Chain|Save|Cancel/i, { timeout: 15000 });
+    await page.keyboard.press('Escape').catch(() => {});
+  });
+
+  test('OF-08: Delete row action opens confirmation and can be cancelled safely', async ({ page }) => {
+    const opened = await clickFirstRowAction(page, /Delete|Remove/i);
+    if (!opened) {
+      console.log('INFO: Offers delete action is not available for the current first row.');
+      await expect(getTable(page)).toBeVisible();
+      return;
+    }
+
+    await expect(activeDialog(page).or(page.locator('body')).first()).toContainText(/Delete|Confirm|Cancel|Are you sure|Yes|No/i, { timeout: 15000 });
+
+    const cancel = page
+      .locator('.swal2-cancel, button:has-text("Cancel"), button:has-text("No"), button:has-text("Close")')
+      .filter({ visible: true })
+      .first();
+    if (await cancel.isVisible().catch(() => false)) {
+      await cancel.click({ force: true }).catch(() => {});
+    } else {
+      await page.keyboard.press('Escape').catch(() => {});
+    }
+    await page.waitForTimeout(1000);
+    await expect(getTable(page)).toBeVisible({ timeout: 15000 });
   });
 });

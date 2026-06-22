@@ -67,6 +67,7 @@
     "test:boost": "npx playwright test \".*13-Smart Boost Campaign.*smart-boost-campaign.spec.js\"",
     "test:kpi": "npx playwright test \".*14-Driver KPI Slabs.*\"",
     "test:reels": "npx playwright test tests/15-Reels",
+    "test:user-notifications": "npx playwright test \".*17-User Notifications.*UserNotifications.spec.js\"",
     "test:club": "npx playwright test TMDoneClubAnalytics.spec.js SubscriptionPlans.spec.js SubscriptionsReports.spec.js CancellationReasons.spec.js",
     "test:all": "npx playwright test tests/",
     "test:headed": "npx playwright test --headed",

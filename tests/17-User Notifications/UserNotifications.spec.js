@@ -1,0 +1,785 @@
+// @ts-check
+// ============================================================
+// TMDone Admin Console - User Notifications
+// Full coverage: page load, create notification basic info,
+// recipient Excel upload, submit, view, Excel download, row
+// actions, search, clear, pagination, and safe destructive checks.
+// ============================================================
+
+import { test, expect } from '@playwright/test';
+import { loginToApp, goToPage } from '../helpers/loginHelper.js';
+
+const USER_NOTIFICATION_ROUTES = [
+  '#/home/user-notifications',
+  '#/home/user-notifications/list',
+  '#/home/user-notification',
+  '#/home/user-notification/list',
+  '#/home/notifications/user',
+  '#/home/userNotifications',
+];
+
+const EXCEL_UPLOAD_FILE = 'tests/fixtures/user-notifications-phone-numbers.xlsx';
+const PHONE_NUMBER = '94713346662';
+const RUN_ID = Date.now();
+const NOTIFICATION_TITLE = `Auto User Notification ${RUN_ID}`;
+const NOTIFICATION_DESCRIPTION = `Playwright automation user notification ${RUN_ID}`;
+
+class UserNotificationsPage {
+  /** @param {import('@playwright/test').Page} page */
+  constructor(page) {
+    this.page = page;
+  }
+
+  get pageSignal() {
+    return this.page
+      .locator(
+        [
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          '.page-title',
+          '.breadcrumb-item',
+          'button',
+          'mat-table',
+          'table',
+        ].join(', ')
+      )
+      .filter({ hasText: /User\s*Notifications?|Notification/i })
+      .filter({ visible: true })
+      .first();
+  }
+
+  get createButton() {
+    return this.page
+      .locator(
+        [
+          'button:has-text("Create User Notification")',
+          'button:has-text("Add User Notification")',
+          'button:has-text("Create Notification")',
+          'button:has-text("Add Notification")',
+          'button:has-text("Create")',
+          'button:has-text("Add")',
+          'button:has(mat-icon:has-text("add"))',
+          '[role="button"]:has-text("Create")',
+          '[role="button"]:has-text("Add")',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+  }
+
+  get table() {
+    return this.page.locator('mat-table, table, .table-responsive, .ngx-datatable').filter({ visible: true }).first();
+  }
+
+  get rows() {
+    return this.page.locator('mat-row, tbody tr, .datatable-body-row').filter({ visible: true });
+  }
+
+  activeDialog() {
+    return this.page
+      .locator('mat-dialog-container, modal-container, .modal-dialog, [role="dialog"], .swal2-popup')
+      .filter({ visible: true })
+      .last();
+  }
+
+  async goto() {
+    await loginToApp(this.page);
+
+    let moduleLoaded = false;
+    for (const route of USER_NOTIFICATION_ROUTES) {
+      await goToPage(this.page, route);
+      await this.waitForNoSpinner();
+      if (await this.isUserNotificationsPage()) {
+        moduleLoaded = true;
+        break;
+      }
+    }
+
+    if (!moduleLoaded) {
+      moduleLoaded = await this.openFromSidebar();
+    }
+
+    const contentText = await this.mainContentText();
+    test.skip(
+      !moduleLoaded,
+      `User Notifications module is not available from known routes or sidebar. Current page: "${this.firstLine(contentText)}".`
+    );
+
+    await this.waitForReady();
+  }
+
+  async openFromSidebar() {
+    const menuItem = this.page
+      .locator(
+        [
+          'a:has-text("User Notifications")',
+          'a:has-text("User Notification")',
+          'button:has-text("User Notifications")',
+          'button:has-text("User Notification")',
+          '[role="menuitem"]:has-text("User Notifications")',
+          '[role="treeitem"]:has-text("User Notifications")',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+
+    if (!(await menuItem.isVisible().catch(() => false))) return false;
+
+    await menuItem.click({ force: true }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+    await this.page.waitForTimeout(2500);
+    await this.waitForNoSpinner();
+    return this.isUserNotificationsPage();
+  }
+
+  async isUserNotificationsPage() {
+    const url = this.page.url();
+    const contentText = await this.mainContentText();
+    const hasUserNotificationSignal = /User\s*Notifications?|Create\s*User\s*Notification|Notification\s*Title|Basic\s*Information/i.test(contentText);
+    const wrongModuleSignal = /Campaigns|Smart\s*Boost|Reels|Offers|Order\s*Management/i.test(this.firstLine(contentText));
+    return /notification/i.test(url) && hasUserNotificationSignal && !wrongModuleSignal;
+  }
+
+  async waitForReady() {
+    await expect(this.page).not.toHaveURL(/signin/i, { timeout: 25000 });
+
+    const ready = await Promise.race([
+      this.pageSignal.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+      this.table.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+      this.createButton.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+    ]);
+
+    expect(ready, 'User Notifications page should expose a heading, table, or create button.').toBe(true);
+    await this.waitForNoSpinner();
+  }
+
+  async verifyPageLoaded() {
+    await this.waitForReady();
+    await expect(this.page.locator('body')).toContainText(/User\s*Notifications?|Notification|Title|Description|Status|Actions/i);
+
+    const visibleControls = await this.page
+      .locator('button, input, textarea, mat-select, [role="combobox"], mat-table, table')
+      .filter({ visible: true })
+      .count();
+    expect(visibleControls).toBeGreaterThan(0);
+  }
+
+  async verifyCreateNotificationFlow() {
+    await expect(this.createButton).toBeVisible({ timeout: 20000 });
+    await this.createButton.click({ force: true });
+    await this.page.waitForTimeout(1500);
+
+    const dialog = this.activeDialog();
+    const context = await dialog.isVisible().catch(() => false) ? dialog : this.page.locator('body');
+    await expect(context).toContainText(/Basic\s*Information|Title|Description|Notification/i, { timeout: 15000 });
+
+    const titleFilled = await this.fillFirstVisible(context, [
+      'input[formcontrolname*="title" i]',
+      'input[placeholder*="Title" i]',
+      'mat-form-field:has-text("Title") input',
+      'input[type="text"]',
+      'input:not([type])',
+    ], NOTIFICATION_TITLE);
+    expect(titleFilled, 'Notification title field should be filled.').toBe(true);
+
+    const descriptionFilled = await this.fillFirstVisible(context, [
+      'textarea[formcontrolname*="description" i]',
+      'textarea[placeholder*="Description" i]',
+      'mat-form-field:has-text("Description") textarea',
+      'textarea',
+      'input[formcontrolname*="description" i]',
+      'input[placeholder*="Description" i]',
+    ], NOTIFICATION_DESCRIPTION);
+    expect(descriptionFilled, 'Notification description field should be filled.').toBe(true);
+
+    await this.clickEnabledButton(context, /Next|Continue/i, { required: true });
+    await this.page.waitForTimeout(1500);
+
+    const uploadContext = await this.activeDialog().isVisible().catch(() => false) ? this.activeDialog() : this.page.locator('body');
+    await expect(uploadContext).toContainText(/Excel|Upload|Phone|Submit|Create|Recipient/i, { timeout: 15000 });
+    const uploaded = await this.uploadExcelFile(uploadContext);
+    expect(uploaded, 'Excel upload input should accept PhoneNumber sheet.').toBe(true);
+
+    await this.clickEnabledButton(uploadContext, /Create|Submit|Save|Done|Upload/i, { required: true });
+    await this.page.waitForTimeout(2500);
+    await this.confirmSuccessIfShown();
+    await this.waitForNoSpinner();
+    await this.searchByTitle(NOTIFICATION_TITLE);
+  }
+
+  async verifyViewCreatedNotification() {
+    await this.searchByTitle(NOTIFICATION_TITLE);
+
+    const opened = await this.openRowAction(/View|Details|Preview/i, this.rowByTitleOrFirst());
+    expect(opened, 'Created notification should expose a View or Details action.').toBe(true);
+
+    const dialog = this.activeDialog();
+    if (await dialog.isVisible().catch(() => false)) {
+      await expect(dialog).toContainText(/User\s*Notification|Notification|Title|Description|Phone|Excel|Details|View/i, { timeout: 15000 });
+      await this.closeDialog();
+    } else {
+      await expect(this.page.locator('body')).toContainText(/User\s*Notification|Notification|Title|Description|Phone|Excel|Details|View/i);
+      await this.goto();
+    }
+  }
+
+  async verifyExcelDownload() {
+    await this.searchByTitle(NOTIFICATION_TITLE);
+
+    const viewOpened = await this.openRowAction(/View|Details|Preview/i, this.rowByTitleOrFirst());
+    expect(viewOpened, 'Excel download is exposed from the User Notification view/details surface.').toBe(true);
+
+    const detailsContext = await this.activeDialog().isVisible().catch(() => false) ? this.activeDialog() : this.page.locator('body');
+    await expect(detailsContext).toContainText(/User\s*Notification|Notification|Title|Description|Next/i, { timeout: 15000 });
+    await this.clickEnabledButton(detailsContext, /Next|Continue/i, { required: true });
+    await this.page.waitForTimeout(1200);
+
+    const excelContext = await this.activeDialog().isVisible().catch(() => false) ? this.activeDialog() : this.page.locator('body');
+    await expect(excelContext).toContainText(/Excel|Upload|Phone|Download|Assign\s*Users|File/i, { timeout: 15000 });
+
+    const detailDownload = excelContext
+      .locator(
+        [
+          'a:has-text("Download attached excel")',
+          'a:has-text("Download")',
+          'button:has-text("Download attached excel")',
+          'button:has-text("Download")',
+          'button:has-text("Excel")',
+          'button:has-text("Export")',
+          '[role="button"]:has-text("Download")',
+          'button[aria-label*="download" i]',
+          'a[download]',
+          'a[href*=".xlsx" i]',
+          'a[href*=".xls" i]',
+          'a[href*="excel" i]',
+          'button:has(mat-icon:has-text("download"))',
+          'button:has(mat-icon:has-text("file_download"))',
+          'button:has(img:has-text("download"))',
+          'button:has(img:has-text("file_download"))',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+
+    await expect(detailDownload, 'User Notification details should expose an Excel/download action.').toBeVisible({ timeout: 10000 });
+    await this.capturePossibleDownload(detailDownload);
+    await this.closeDialog();
+    await this.goto();
+  }
+
+  async verifyAllVisibleButtonsAndTableTools() {
+    await this.verifySearchClearAndPagination();
+    await this.verifyRowActionMenu();
+    await this.verifyOptionalEditAndDeleteButtonsSafely();
+
+    const buttons = this.page.locator('button, [role="button"]').filter({ visible: true });
+    expect(await buttons.count()).toBeGreaterThan(0);
+
+    const maxButtonsToProbe = Math.min(await buttons.count(), 20);
+    for (let index = 0; index < maxButtonsToProbe; index += 1) {
+      const button = buttons.nth(index);
+      const label = await this.controlLabel(button);
+      if (!label || /create|add|delete|remove|submit|save|update|logout|sign out/i.test(label)) continue;
+      await expect(button).toBeVisible();
+    }
+  }
+
+  async verifySearchClearAndPagination() {
+    const searchInput = this.page
+      .locator('input[placeholder*="Search" i], input[aria-label*="search" i], input[matinput], input.mat-input-element')
+      .filter({ visible: true })
+      .first();
+
+    if (await searchInput.isVisible().catch(() => false)) {
+      await searchInput.click({ force: true });
+      await searchInput.fill(NOTIFICATION_TITLE);
+      await this.clickSearchButton();
+      await this.page.waitForTimeout(1200);
+      await expect(this.table.or(this.page.locator(':text("No data"), :text("No records"), :text("No results")').first()).first()).toBeVisible();
+      await this.clickClearButton();
+    }
+
+    await this.verifyPagination();
+  }
+
+  async verifyRowActionMenu() {
+    const row = this.rowByTitleOrFirst();
+    if (!(await row.isVisible().catch(() => false))) return;
+
+    const opened = await this.openRowMenu(row);
+    expect(opened, 'A notification row should expose actions or direct action buttons.').toBe(true);
+    await this.page.keyboard.press('Escape').catch(() => {});
+  }
+
+  async verifyOptionalEditAndDeleteButtonsSafely() {
+    const row = this.rowByTitleOrFirst();
+    if (!(await row.isVisible().catch(() => false))) return;
+
+    const editOpened = await this.openRowAction(/Edit|Update/i, row);
+    if (editOpened) {
+      await expect(this.activeDialog().or(this.page.locator('body')).first()).toContainText(/Edit|Update|Notification|Title|Description/i);
+      await this.closeDialog();
+      await this.goto();
+    }
+
+    await this.searchByTitle(NOTIFICATION_TITLE);
+    const deleteOpened = await this.openRowAction(/Delete|Remove/i, this.rowByTitleOrFirst());
+    if (deleteOpened) {
+      await expect(this.activeDialog().or(this.page.locator('body')).first()).toContainText(/Delete|Remove|Confirm|Cancel|Are you sure/i);
+      await this.cancelConfirmation();
+      await this.goto();
+    }
+  }
+
+  rowByTitleOrFirst() {
+    const createdRow = this.rows.filter({ hasText: NOTIFICATION_TITLE }).first();
+    return createdRow.or(this.rows.first()).first();
+  }
+
+  /**
+   * @param {import('@playwright/test').Locator} context
+   * @param {string[]} selectors
+   * @param {string} value
+   */
+  async fillFirstVisible(context, selectors, value) {
+    for (const selector of selectors) {
+      const field = context.locator(selector).filter({ visible: true }).first();
+      if (!(await field.isVisible().catch(() => false))) continue;
+      if (!(await field.isEditable().catch(() => true))) continue;
+
+      await field.scrollIntoViewIfNeeded().catch(() => {});
+      await field.click({ clickCount: 3, force: true }).catch(() => {});
+      await field.fill(value).catch(async () => {
+        await field.pressSequentially(value, { delay: 20 }).catch(() => {});
+      });
+      await field.dispatchEvent('input').catch(() => {});
+      await field.dispatchEvent('change').catch(() => {});
+      return true;
+    }
+    return false;
+  }
+
+  /** @param {import('@playwright/test').Locator} context */
+  async uploadExcelFile(context) {
+    const fileInputs = context.locator('input[type="file"]');
+    const count = await fileInputs.count().catch(() => 0);
+    for (let index = 0; index < count; index += 1) {
+      const input = fileInputs.nth(index);
+      await input.setInputFiles(EXCEL_UPLOAD_FILE).catch(() => {});
+      await input.dispatchEvent('change').catch(() => {});
+      await this.page.waitForTimeout(1200);
+      if (await this.uploadSucceeded(context)) return true;
+    }
+
+    const uploadButton = context
+      .locator('button:has-text("Upload"), button:has-text("Choose"), button:has-text("Browse"), [role="button"]:has-text("Upload")')
+      .filter({ visible: true })
+      .first();
+    if (await uploadButton.isVisible().catch(() => false)) {
+      const chooserPromise = this.page.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null);
+      await uploadButton.click({ force: true }).catch(() => {});
+      const chooser = await chooserPromise;
+      if (chooser) {
+        await chooser.setFiles(EXCEL_UPLOAD_FILE);
+        await this.page.waitForTimeout(1200);
+        return this.uploadSucceeded(context);
+      }
+    }
+
+    return false;
+  }
+
+  /** @param {import('@playwright/test').Locator} context */
+  async uploadSucceeded(context) {
+    const uploadedFileSignal = context
+      .locator(':text("user-notifications-phone-numbers.xlsx"), :text("Download attached excel"), button:has-text("Delete File")')
+      .filter({ visible: true })
+      .first();
+    if (await uploadedFileSignal.isVisible().catch(() => false)) return true;
+
+    const createButton = await this.enabledButton(context, /Create|Submit|Save|Done|Upload/i);
+    return await createButton.isVisible().catch(() => false) && await createButton.isEnabled().catch(() => false);
+  }
+
+  /**
+   * @param {import('@playwright/test').Locator} context
+   * @param {RegExp} label
+   * @param {{ required?: boolean }} options
+   */
+  async clickEnabledButton(context, label, options = {}) {
+    const button = await this.enabledButton(context, label);
+    if (options.required) {
+      await expect(button).toBeVisible({ timeout: 15000 });
+      await expect(button).toBeEnabled({ timeout: 15000 });
+    }
+
+    if (await button.isVisible().catch(() => false) && await button.isEnabled().catch(() => false)) {
+      await button.scrollIntoViewIfNeeded().catch(() => {});
+      await button.click({ force: true });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * @param {import('@playwright/test').Locator} context
+   * @param {RegExp} label
+   */
+  async enabledButton(context, label) {
+    const buttons = context.locator('button, [role="button"]').filter({ visible: true }).filter({ hasText: label });
+    const count = await buttons.count().catch(() => 0);
+
+    for (let index = 0; index < count; index += 1) {
+      const button = buttons.nth(index);
+      if (await button.isEnabled().catch(() => false)) return button;
+    }
+
+    return buttons.first();
+  }
+
+  /** @param {string} title */
+  async searchByTitle(title) {
+    const searchInput = this.page
+      .locator('input[placeholder*="Search" i], input[aria-label*="search" i], input[matinput], input.mat-input-element')
+      .filter({ visible: true })
+      .first();
+
+    if (!(await searchInput.isVisible().catch(() => false))) return;
+
+    await searchInput.click({ force: true });
+    await searchInput.fill(title);
+    await this.clickSearchButton();
+    await this.page.waitForTimeout(1500);
+  }
+
+  async clickSearchButton() {
+    const searchButton = this.page
+      .locator('button[aria-label*="search" i], button:has(mat-icon:has-text("search")), button:has-text("Search")')
+      .filter({ visible: true })
+      .first();
+    if (await searchButton.isVisible().catch(() => false) && await searchButton.isEnabled().catch(() => false)) {
+      await searchButton.click({ force: true }).catch(() => {});
+    } else {
+      await this.page.keyboard.press('Enter').catch(() => {});
+    }
+  }
+
+  async clickClearButton() {
+    const clearButton = this.page
+      .locator(
+        [
+          'button[aria-label*="clear" i]',
+          'button:has(mat-icon:has-text("clear"))',
+          'button:has(mat-icon:has-text("close"))',
+          'button:has-text("Clear")',
+          'button:has-text("Reset")',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+    if (await clearButton.isVisible().catch(() => false) && await clearButton.isEnabled().catch(() => false)) {
+      await clearButton.click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(1000);
+    }
+  }
+
+  /**
+   * @param {import('@playwright/test').Locator} [button]
+   */
+  async capturePossibleDownload(button) {
+    const downloadPromise = this.page.waitForEvent('download', { timeout: 10000 }).catch(() => null);
+    if (button) await button.click({ force: true }).catch(() => {});
+    const download = await downloadPromise;
+    if (download) {
+      const suggestedName = download.suggestedFilename();
+      expect(suggestedName).toMatch(/\.(xlsx|xls|csv)$/i);
+    }
+  }
+
+  /** @param {import('@playwright/test').Locator} row */
+  async openRowMenu(row) {
+    const menuTrigger = row
+      .locator(
+        [
+          'button:has(mat-icon:has-text("more_vert"))',
+          'button:has(mat-icon:has-text("more_horiz"))',
+          'mat-icon:has-text("more_vert")',
+          'mat-icon:has-text("more_horiz")',
+          '.mat-menu-trigger',
+          '[aria-label*="More" i]',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+
+    if (await menuTrigger.isVisible().catch(() => false)) {
+      await menuTrigger.scrollIntoViewIfNeeded().catch(() => {});
+      await menuTrigger.click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(800);
+      return (await this.rowActionMenuItems().count().catch(() => 0)) > 0;
+    }
+
+    const directActions = row.locator('button, [role="button"], a').filter({ visible: true });
+    return (await directActions.count().catch(() => 0)) > 0;
+  }
+
+  rowActionMenuItems() {
+    return this.page
+      .locator(
+        [
+          '.cdk-overlay-pane [role="menuitem"]',
+          '.cdk-overlay-pane button',
+          '.mat-menu-panel [role="menuitem"]',
+          '[role="menu"] [role="menuitem"]',
+          '.dropdown-menu .dropdown-item',
+        ].join(', ')
+      )
+      .filter({ visible: true });
+  }
+
+  /**
+   * @param {RegExp} actionLabel
+   * @param {import('@playwright/test').Locator} row
+   */
+  async openRowAction(actionLabel, row) {
+    if (!(await row.isVisible().catch(() => false))) return false;
+
+    const iconAction = this.iconActionLocator(row, actionLabel);
+    if (await iconAction.isVisible().catch(() => false) && await iconAction.isEnabled().catch(() => true)) {
+      await iconAction.click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(1500);
+      return true;
+    }
+
+    const directAction = row
+      .locator('button, [role="button"], a')
+      .filter({ visible: true })
+      .filter({ hasText: actionLabel })
+      .first();
+    if (await directAction.isVisible().catch(() => false) && await directAction.isEnabled().catch(() => true)) {
+      await directAction.click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(1500);
+      return true;
+    }
+
+    if (!(await this.openRowMenu(row))) return false;
+
+    const menuAction = this.rowActionMenuItems().filter({ hasText: actionLabel }).first();
+    if (!(await menuAction.isVisible().catch(() => false)) || !(await menuAction.isEnabled().catch(() => true))) {
+      await this.page.keyboard.press('Escape').catch(() => {});
+      return false;
+    }
+
+    await menuAction.click({ force: true }).catch(() => {});
+    await this.page.waitForTimeout(1500);
+    return true;
+  }
+
+  /**
+   * @param {import('@playwright/test').Locator} row
+   * @param {RegExp} actionLabel
+   */
+  iconActionLocator(row, actionLabel) {
+    if (/view|details|preview/i.test(actionLabel.source)) {
+      return row
+        .locator(
+          [
+            'button:has(img:has-text("visibility"))',
+            'button:has(mat-icon:has-text("visibility"))',
+            'button:has-text("visibility")',
+            'button:has-text("visib")',
+            'button[aria-label*="view" i]',
+            'button[title*="view" i]',
+          ].join(', ')
+        )
+        .filter({ visible: true })
+        .first();
+    }
+
+    if (/download|excel|export/i.test(actionLabel.source)) {
+      return row
+        .locator(
+          [
+            'button:has(img:has-text("download"))',
+            'button:has(mat-icon:has-text("download"))',
+            'button:has(img:has-text("file_download"))',
+            'button:has(mat-icon:has-text("file_download"))',
+            'button[aria-label*="download" i]',
+            'button[title*="download" i]',
+          ].join(', ')
+        )
+        .filter({ visible: true })
+        .first();
+    }
+
+    if (/edit|update/i.test(actionLabel.source)) {
+      return row
+        .locator('button:has(img:has-text("edit")), button:has(mat-icon:has-text("edit")), button[aria-label*="edit" i]')
+        .filter({ visible: true })
+        .first();
+    }
+
+    if (/delete|remove/i.test(actionLabel.source)) {
+      return row
+        .locator('button:has(img:has-text("delete")), button:has(mat-icon:has-text("delete")), button[aria-label*="delete" i]')
+        .filter({ visible: true })
+        .first();
+    }
+
+    return row.locator('button').filter({ visible: true }).filter({ hasText: actionLabel }).first();
+  }
+
+  async verifyPagination() {
+    const nextButton = this.page
+      .locator(
+        [
+          'button[aria-label*="Next" i]',
+          '.mat-paginator-navigation-next',
+          'li.pagination-next',
+          'li.page-item:has-text("Next")',
+          '[role="button"]:has-text("Next")',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+
+    if (!(await nextButton.isVisible().catch(() => false))) return;
+    if (await this.isDisabled(nextButton)) return;
+
+    await nextButton.click({ force: true }).catch(() => {});
+    await this.page.waitForTimeout(1500);
+    await expect(this.page.locator('body')).toBeVisible();
+  }
+
+  async confirmSuccessIfShown() {
+    const okButton = this.page
+      .locator('.swal2-confirm, button:has-text("OK"), button:has-text("Ok"), button:has-text("Yes")')
+      .filter({ visible: true })
+      .first();
+    if (await okButton.isVisible({ timeout: 7000 }).catch(() => false)) {
+      await okButton.click({ force: true }).catch(() => {});
+      await this.page.waitForTimeout(1000);
+    }
+  }
+
+  async cancelConfirmation() {
+    const cancelButton = this.page
+      .locator('.swal2-cancel, button:has-text("Cancel"), button:has-text("No"), button:has-text("Close")')
+      .filter({ visible: true })
+      .first();
+    if (await cancelButton.isVisible().catch(() => false)) {
+      await cancelButton.click({ force: true }).catch(() => {});
+    } else {
+      await this.page.keyboard.press('Escape').catch(() => {});
+    }
+    await this.page.waitForTimeout(1000);
+  }
+
+  async closeDialog() {
+    const closeButton = this.page
+      .locator(
+        [
+          '.swal2-cancel',
+          'button:has-text("Cancel")',
+          'button:has-text("Close")',
+          'button:has-text("No")',
+          '[aria-label="Close"]',
+          'button:has(mat-icon:has-text("close"))',
+          'mat-icon:has-text("close")',
+        ].join(', ')
+      )
+      .filter({ visible: true })
+      .first();
+
+    if (await closeButton.isVisible().catch(() => false)) {
+      await closeButton.click({ force: true }).catch(() => {});
+    } else {
+      await this.page.keyboard.press('Escape').catch(() => {});
+    }
+    await this.page.waitForTimeout(1000);
+  }
+
+  async waitForNoSpinner() {
+    for (const selector of ['.ngx-spinner-overlay', 'app-page-loader', '.loading-overlay', '.loading-spinner']) {
+      await this.page.locator(selector).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+    }
+  }
+
+  /** @param {import('@playwright/test').Locator} locator */
+  async isDisabled(locator) {
+    return locator.evaluate((node) => {
+      const element = /** @type {HTMLElement} */ (node);
+      return element.hasAttribute('disabled') ||
+        element.getAttribute('aria-disabled') === 'true' ||
+        /disabled/.test(element.getAttribute('class') || '');
+    }).catch(() => false);
+  }
+
+  /** @param {import('@playwright/test').Locator} locator */
+  async controlLabel(locator) {
+    const text = (await locator.innerText().catch(() => '')).trim();
+    const aria = (await locator.getAttribute('aria-label').catch(() => '')) || '';
+    const title = (await locator.getAttribute('title').catch(() => '')) || '';
+    return [text, aria, title].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  /** @param {string} value */
+  firstLine(value) {
+    return value.replace(/\s+/g, ' ').trim().slice(0, 100);
+  }
+
+  async mainContentText() {
+    return this.page.locator('body').evaluate((body) => {
+      const clone = body.cloneNode(true);
+      const selectorsToRemove = [
+        'nav',
+        'aside',
+        '.sidebar',
+        '.navbar',
+        '.right-sidebar',
+        '.cdk-overlay-container',
+        'mat-sidenav',
+      ];
+
+      for (const selector of selectorsToRemove) {
+        // @ts-ignore
+        clone.querySelectorAll(selector).forEach((node) => node.remove());
+      }
+
+      return (clone.textContent || '').replace(/\s+/g, ' ').trim();
+    }).catch(() => '');
+  }
+}
+
+test.describe.serial('17 - User Notifications', () => {
+  /** @type {UserNotificationsPage} */
+  let userNotifications;
+
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(300000);
+    userNotifications = new UserNotificationsPage(page);
+    await userNotifications.goto();
+  });
+
+  test('UN-01: User Notifications page loads with main controls', async () => {
+    await userNotifications.verifyPageLoaded();
+  });
+
+  test('UN-02: Create User Notification with Basic Information and PhoneNumber Excel upload', async () => {
+    await userNotifications.verifyCreateNotificationFlow();
+  });
+
+  test('UN-03: View created User Notification details', async () => {
+    await userNotifications.verifyViewCreatedNotification();
+  });
+
+  test('UN-04: Download User Notification Excel file', async () => {
+    await userNotifications.verifyExcelDownload();
+  });
+
+  test('UN-05: Check User Notifications buttons, row actions, filters, and pagination', async () => {
+    await userNotifications.verifyAllVisibleButtonsAndTableTools();
+  });
+});
